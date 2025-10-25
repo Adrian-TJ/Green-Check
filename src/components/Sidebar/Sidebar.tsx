@@ -13,7 +13,7 @@ import ListItemText from "@mui/material/ListItemText";
 import IconButton from "@mui/material/IconButton";
 import MenuIcon from "@mui/icons-material/Menu";
 import DashboardIcon from "@mui/icons-material/Dashboard";
-import EcoIcon from "@mui/icons-material/Eco";
+import NatureIcon from "@mui/icons-material/Nature";
 import PeopleIcon from "@mui/icons-material/People";
 import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 
@@ -31,7 +31,7 @@ const navigationItems: NavigationItem[] = [
   },
   {
     text: "Medio Ambiente",
-    icon: <EcoIcon />,
+    icon: <NatureIcon />,
     path: "/environment",
   },
   {
@@ -63,7 +63,7 @@ export default function Sidebar() {
   const DrawerList = (
     <Box sx={{ width: 250 }} role="presentation">
       <Box sx={{ p: 2, display: "flex", alignItems: "center", gap: 1 }}>
-        <EcoIcon color="primary" />
+        <NatureIcon color="primary" />
         <ListItemText
           primary="GreenCheck"
           primaryTypographyProps={{
@@ -134,7 +134,20 @@ export default function Sidebar() {
       >
         <MenuIcon />
       </IconButton>
-      <Drawer anchor="left" open={open} onClose={toggleDrawer(false)}>
+      <Drawer
+        anchor="left"
+        open={open}
+        onClose={toggleDrawer(false)}
+        sx={{
+          "& .MuiDrawer-paper": {
+            borderTopLeftRadius: 0,
+            borderBottomLeftRadius: 0,
+            borderTopRightRadius: 30,
+            borderBottomRightRadius: 30,
+            boxShadow: "4px 0 15px rgba(0,0,0,0.1)",
+          },
+        }}
+      >
         {DrawerList}
       </Drawer>
     </>
