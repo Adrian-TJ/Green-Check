@@ -18,6 +18,7 @@ export default function Upload() {
   const [extractedText, setExtractedText] = useState("");
   const [ocrConfidence, setOcrConfidence] = useState<number | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [parsedData, setParsedData] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const documentTypeLabels: Record<string, { label: string }> = {
@@ -33,6 +34,7 @@ export default function Upload() {
     setUploadMessage("");
     setExtractedText("");
     setOcrConfidence(null);
+    setParsedData(null);
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -70,6 +72,7 @@ export default function Upload() {
     setIsProcessing(true);
     setExtractedText("");
     setOcrConfidence(null);
+    setParsedData(null);
 
     try {
       const formData = new FormData();
@@ -96,6 +99,7 @@ export default function Upload() {
 
       setExtractedText(data.extractedText);
       setOcrConfidence(data.confidence);
+      setParsedData(data.parsedData);
       setUploadStatus("success");
       setUploadMessage(
         `File "${selectedFile.name}" processed successfully! Extracted ${data.wordCount} words.`
@@ -286,6 +290,89 @@ export default function Upload() {
               }`}
             >
               <p className="text-sm font-medium">{uploadMessage}</p>
+            </div>
+          )}
+
+          {parsedData && parsedData.documentType === "luz" && (
+            <div className="mt-6 space-y-4">
+              <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                ⚡ Parsed Bill Information
+              </h3>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                {/* Billing Period */}
+                {parsedData.periodo && (
+                  <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800">
+                    <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+                      Periodo Facturado
+                    </p>
+                    <p className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                      {parsedData.periodo}
+                    </p>
+                  </div>
+                )}
+
+                {/* Current Consumption */}
+                {parsedData.consumoActual !== undefined && (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/20">
+                    <p className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">
+                      Consumo Actual
+                    </p>
+                    <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                      {parsedData.consumoActual} kWh
+                    </p>
+                  </div>
+                )}
+
+                {/* Previous Consumption */}
+                {parsedData.consumoAnterior !== undefined && (
+                  <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800">
+                    <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+                      Consumo Anterior
+                    </p>
+                    <p className="text-base font-semibold text-zinc-700 dark:text-zinc-300">
+                      {parsedData.consumoAnterior} kWh
+                    </p>
+                  </div>
+                )}
+
+                {/* Consumption Difference */}
+                {parsedData.consumoDiferencia !== undefined && (
+                  <div
+                    className={`rounded-lg border p-4 ${
+                      parsedData.consumoDiferencia > 0
+                        ? "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/20"
+                        : parsedData.consumoDiferencia < 0
+                        ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20"
+                        : "border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800"
+                    }`}
+                  >
+                    <p
+                      className={`text-xs font-medium mb-1 ${
+                        parsedData.consumoDiferencia > 0
+                          ? "text-red-600 dark:text-red-400"
+                          : parsedData.consumoDiferencia < 0
+                          ? "text-green-600 dark:text-green-400"
+                          : "text-zinc-500 dark:text-zinc-400"
+                      }`}
+                    >
+                      Diferencia de Consumo
+                    </p>
+                    <p
+                      className={`text-base font-semibold ${
+                        parsedData.consumoDiferencia > 0
+                          ? "text-red-700 dark:text-red-300"
+                          : parsedData.consumoDiferencia < 0
+                          ? "text-green-700 dark:text-green-300"
+                          : "text-zinc-700 dark:text-zinc-300"
+                      }`}
+                    >
+                      {parsedData.consumoDiferencia > 0 ? "+" : ""}
+                      {parsedData.consumoDiferencia} kWh
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

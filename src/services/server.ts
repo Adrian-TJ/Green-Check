@@ -101,13 +101,36 @@ async function preprocessImage(buffer: Buffer): Promise<Buffer> {
  * Extract relevant information from electricity bill text
  */
 function parseLuzDocument(text: string): ParsedDocumentData {
-  // TODO: Implement electricity bill parsing logic
-  // Extract: account number, period, consumption (kWh), amount, due date, etc.
-  return {
+  const parsedData: ParsedDocumentData = {
     documentType: "luz",
     rawText: text,
-    // Add parsed fields here
   };
+
+  // Extract billing period (PERIODO FACTURADO)
+  const periodoMatch = text.match(
+    /PERIODO\s+FACTURADO[:\s]+(\d{1,2}\s+\w+\s+\d{2,4})\s*-\s*(\d{1,2}\s+\w+\s+\d{2,4})/i
+  );
+  if (periodoMatch) {
+    parsedData.periodoInicio = periodoMatch[1].trim();
+    parsedData.periodoFin = periodoMatch[2].trim();
+    parsedData.periodo = `${periodoMatch[1].trim()} - ${periodoMatch[2].trim()}`;
+    console.log(`Periodo facturado: ${parsedData.periodo}`);
+  }
+
+  // Extract energy consumption (Energía kWh)
+  // Pattern matches: "Energía (kWh)" followed by current and previous consumption
+  const energiaMatch = text.match(/Energ[ií]a\s*\(kWh\)\s+(\d+)\s+(\d+)/i);
+  if (energiaMatch) {
+    parsedData.consumoActual = parseInt(energiaMatch[1], 10);
+    parsedData.consumoAnterior = parseInt(energiaMatch[2], 10);
+    parsedData.consumoDiferencia =
+      parsedData.consumoActual - parsedData.consumoAnterior;
+    console.log(`Consumo actual: ${parsedData.consumoActual} kWh`);
+    console.log(`Consumo anterior: ${parsedData.consumoAnterior} kWh`);
+    console.log(`Diferencia: ${parsedData.consumoDiferencia} kWh`);
+  }
+
+  return parsedData;
 }
 
 /**
@@ -198,11 +221,9 @@ app.post(
         !documentType ||
         !["luz", "agua", "gas", "gasolina"].includes(documentType)
       ) {
-        return res
-          .status(400)
-          .json({
-            error: "Valid document type is required (luz, agua, gas, gasolina)",
-          });
+        return res.status(400).json({
+          error: "Valid document type is required (luz, agua, gas, gasolina)",
+        });
       }
 
       console.log(
