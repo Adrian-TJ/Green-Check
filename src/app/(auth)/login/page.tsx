@@ -55,16 +55,26 @@ export default function LoginPage(): React.JSX.Element {
           GreenCheck
         </Typography>
 
-        <Typography variant="body2" color="text.secondary" textAlign="center" mb={4}>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          textAlign="center"
+          mb={4}
+        >
           Bienvenido al portal de empresas sostenibles
         </Typography>
 
         {/* Formulario */}
         <form onSubmit={handleSubmit}>
           <Stack spacing={3}>
-            <TextField label="Usuario" fullWidth />
-            <TextField label="Contraseña" type="password" fullWidth />
-            {/* Botón principal con variante de marca */}
+            <TextField label="Usuario" variant="filled" fullWidth />
+            <TextField
+              label="Contraseña"
+              type="password"
+              variant="filled"
+              fullWidth
+            />
+            {/* Botón principal */}
             <Button type="submit" variant="primary" fullWidth>
               Ingresar
             </Button>
@@ -74,7 +84,6 @@ export default function LoginPage(): React.JSX.Element {
         {/* Opciones adicionales */}
         <Box mt={4}>
           <Divider sx={{ mb: 2 }} />
-          {/* Enlace como botón terciario para heredar tipografía/hover del theme */}
           <Box display="flex" justifyContent="center">
             <Button variant="tertiary" disableRipple>
               ¿Olvidaste tu contraseña?

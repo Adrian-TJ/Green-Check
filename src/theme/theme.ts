@@ -159,6 +159,91 @@ const theme = createTheme({
         root: { color: BANORTE_RED, "&:hover": { color: BANORTE_RED_HOVER } },
       },
     },
+
+     // Label (12 px) y colores por estado
+  MuiInputLabel: {
+  styleOverrides: {
+    root: {
+      fontSize: "12px",
+      color: "#5B6670", // gris Banorte
+      transform: "translate(12px, 16px) scale(1)", // posición inicial
+      transition: "all 0.2s ease",
+      "&.MuiInputLabel-shrink": {
+        transform: "translate(12px, 4px) scale(0.85)", // posición flotante
+        color: "#5B6670",
+      },
+      "&.Mui-disabled": {
+        color: "#C1C5C8", // label deshabilitado
+      },
+      "&.Mui-error": {
+        color: "#EB0029", // label rojo si hay error
+      },
+    },
+  },
+},
+
+MuiFilledInput: {
+  styleOverrides: {
+    root: {
+      backgroundColor: "#F6F6F6", // fondo del campo
+      borderRadius: 10,
+      transition: "all 0.2s ease",
+      "&:hover": { backgroundColor: "#F6F6F6" },
+      "&.Mui-focused": {
+        backgroundColor: "#F6F6F6", // sin cambio al enfocar
+      },
+      "&.Mui-disabled": {
+        backgroundColor: "#F6F6F6",
+        color: "#C1C5C8",
+      },
+
+      // Línea inferior
+      "&:before": {
+        borderBottom: "1px solid #D0D5DD", // línea base gris claro
+      },
+      "&:hover:before": {
+        borderBottom: "1px solid #5B6670", // hover gris Banorte
+      },
+      "&.Mui-focused:after": {
+        borderBottom: "2px solid #5B6670", // foco gris Banorte (no negro)
+      },
+      "&.Mui-error:after": {
+        borderBottom: "2px solid #EB0029", // error rojo Banorte
+      },
+    },
+
+    input: {
+      fontSize: "15px",
+      fontWeight: 500,
+      color: "#323E48", // texto principal
+      lineHeight: 1.4,
+      padding: "18px 12px 6px 12px", // centra el texto verticalmente
+      "&::placeholder": {
+        color: "#5B6670",
+        opacity: 1,
+      },
+    },
+  },
+},
+
+MuiFormHelperText: {
+  styleOverrides: {
+    root: {
+      marginTop: 4,
+      fontSize: "12px",
+      lineHeight: 1.4,
+      color: "#5B6670",
+    },
+    error: {
+      color: "#EB0029", // mensaje de error rojo Banorte
+    },
+    disabled: {
+      color: "#C1C5C8",
+    },
+  },
+},
+
+  
   },
 });
 
