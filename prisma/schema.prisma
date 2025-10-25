@@ -1,0 +1,84 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String   @id @default(uuid())
+  first_name String
+  last_name  String?
+  email      String   @unique
+  password   String
+  pyme       Pyme?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+model Pyme {
+  id          String       @id @default(uuid())
+  name        String
+  description String?
+  address     String?
+  phone       String?
+  email       String       @unique
+  created_at  DateTime     @default(now())
+  updated_at  DateTime     @updatedAt
+  resources   resources[]
+  governance  governance[]
+  social      social[]
+  User        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String       @unique
+}
+
+model resources {
+  id         String       @id @default(uuid())
+  name       String
+  type       resourceType
+  url        String
+  date       DateTime     @default(now())
+  created_at DateTime     @default(now())
+  updated_at DateTime     @updatedAt
+  Pyme       Pyme         @relation(fields: [pymeId], references: [id])
+  pymeId     String
+}
+
+model governance {
+  id              String   @id @default(uuid())
+  codigo_etica    Boolean
+  anti_corrupcion Boolean
+  risk_file_url   String
+  date            DateTime @default(now())
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  Pyme            Pyme?    @relation(fields: [pymeId], references: [id])
+  pymeId          String?
+}
+
+model social {
+  id                  String   @id @default(uuid())
+  men                 Int
+  women               Int
+  men_in_leadership   Int
+  women_in_leadership Int
+  training_hours      Int
+  satisfaction_rate   Float
+  community_programs  Boolean
+  insured_employees   Int
+  uninsured_employees Int
+  date                DateTime @default(now())
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+  Pyme                Pyme?    @relation(fields: [pymeId], references: [id])
+  pymeId              String?
+}
+
+enum resourceType {
+  AGUA
+  LUZ
+  GAS
+  TRANSPORTE
+}
