@@ -107,8 +107,9 @@ function parseLuzDocument(text: string): ParsedDocumentData {
   };
 
   // Extract billing period (PERIODO FACTURADO)
+  // Handle cases where dates might be on next line or with extra text in between
   const periodoMatch = text.match(
-    /PERIODO\s+FACTURADO[:\s]+(\d{1,2}\s+\w+\s+\d{2,4})\s*-\s*(\d{1,2}\s+\w+\s+\d{2,4})/i
+    /PERIODO\s+FACTURADO[:\s]*(?:.*?\n)?.*?(\d{1,2}\s+\w+\s?\d{2,4})\s*-\s*(\d{1,2}\s+\w+\s?\d{2,4})/i
   );
   if (periodoMatch) {
     parsedData.periodoInicio = periodoMatch[1].trim();
