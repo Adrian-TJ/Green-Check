@@ -2,11 +2,9 @@
 
 import { z } from "zod";
 import { compare } from "bcrypt";
-import { PrismaClient } from "@prisma/client";
+import { db } from "@/utils/db";
 import type { GeneralResponse } from "@/models/generalResponse";
 import type { UserWithPyme } from "../models/User";
-
-const prisma = new PrismaClient();
 
 const verifyUserSchema = z.object({
   email: z.string().email("Invalid email format"),
@@ -21,7 +19,7 @@ export async function verifyUserService(
     const validated = verifyUserSchema.parse(data);
 
     // Find user by email
-    const user = await prisma.user.findUnique({
+    const user = await db.user.findUnique({
       where: { email: validated.email },
       include: { pyme: true },
     });
