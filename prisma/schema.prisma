@@ -35,15 +35,15 @@ model Pyme {
 }
 
 model resources {
-  id         String       @id @default(uuid())
-  name       String
-  type       resourceType
-  url        String
-  date       DateTime     @default(now())
-  created_at DateTime     @default(now())
-  updated_at DateTime     @updatedAt
-  Pyme       Pyme         @relation(fields: [pymeId], references: [id])
-  pymeId     String
+  id          String       @id @default(uuid())
+  name        String
+  type        resourceType
+  consumption Float
+  date        DateTime     @default(now())
+  created_at  DateTime     @default(now())
+  updated_at  DateTime     @updatedAt
+  Pyme        Pyme         @relation(fields: [pymeId], references: [id])
+  pymeId      String
 }
 
 model governance {
