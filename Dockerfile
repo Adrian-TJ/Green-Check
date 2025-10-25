@@ -1,0 +1,7 @@
+FROM postgres:14
+
+ENV POSTGRES_USER=postgres
+ENV POSTGRES_PASSWORD=mypassword
+ENV POSTGRES_DB=dev-db
+
+EXPOSE 5433
