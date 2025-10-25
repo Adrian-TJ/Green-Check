@@ -233,12 +233,12 @@ MuiFormHelperText: {
       fontSize: "12px",
       lineHeight: 1.4,
       color: "#5B6670",
-    },
-    error: {
-      color: "#EB0029", // mensaje de error rojo Banorte
-    },
-    disabled: {
-      color: "#C1C5C8",
+      "&.Mui-error": {
+        "color": "#EB0029"
+      },
+      "&.Mui-disabled": {
+        color: "#C1C5C8",
+      },
     },
   },
 },

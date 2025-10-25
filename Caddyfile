@@ -1,0 +1,3 @@
+:3001
+reverse_proxy localhost:3000
+tls ./localhost+3.pem ./localhost+3-key.pem
