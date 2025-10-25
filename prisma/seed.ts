@@ -1,13 +1,17 @@
 import { PrismaClient, resourceType } from "@prisma/client";
+import { hash } from "bcrypt";
+
 const prisma = new PrismaClient();
 
 async function main() {
+  const hashedPassword = await hash("securepassword123", 10);
+
   const user = await prisma.user.create({
     data: {
       first_name: "María",
       last_name: "González",
       email: "maria.gonzalez@ecopyme.mx",
-      password: "securepassword123",
+      password: hashedPassword,
       pyme: {
         create: {
           name: "EcoPyme Sostenible",
