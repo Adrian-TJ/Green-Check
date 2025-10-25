@@ -13,12 +13,17 @@ export default function Upload() {
     "idle" | "uploading" | "success" | "error"
   >("idle");
   const [uploadMessage, setUploadMessage] = useState("");
+  const [extractedText, setExtractedText] = useState("");
+  const [ocrConfidence, setOcrConfidence] = useState<number | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
     setUploadStatus("idle");
     setUploadMessage("");
+    setExtractedText("");
+    setOcrConfidence(null);
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -53,31 +58,47 @@ export default function Upload() {
 
     setUploadStatus("uploading");
     setUploadMessage("");
+    setIsProcessing(true);
+    setExtractedText("");
+    setOcrConfidence(null);
 
     try {
       const formData = new FormData();
       formData.append("file", selectedFile);
       formData.append("uploadId", uploadId);
 
-      // TODO: Replace with actual upload endpoint
+      // Send to Express OCR API
+      const API_URL =
+        process.env.NEXT_PUBLIC_OCR_API_URL || "https://localhost:3002";
+      console.log("Uploading to OCR API at:", API_URL);
+      const response = await fetch(`${API_URL}/api/ocr-upload`, {
+        method: "POST",
+        body: formData,
+      });
 
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`);
+      }
 
-      console.log(
-        `File "${selectedFile.name}" uploaded to session: ${uploadId}`
-      );
+      const data = await response.json();
 
+      console.log("OCR Result:", data);
+
+      setExtractedText(data.extractedText);
+      setOcrConfidence(data.confidence);
       setUploadStatus("success");
       setUploadMessage(
-        `File "${
-          selectedFile.name
-        }" uploaded successfully to session ${uploadId.slice(0, 8)}!`
+        `File "${selectedFile.name}" processed successfully! Extracted ${data.wordCount} words.`
       );
-      setSelectedFile(null);
+
+      // Keep the file selected to show the preview
+      // setSelectedFile(null); // Commented out so user can see the file details
     } catch (error) {
       setUploadStatus("error");
       setUploadMessage("Upload failed. Please try again.");
       console.error("Upload error:", error);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -140,7 +161,7 @@ export default function Upload() {
               onChange={handleFileInputChange}
               className="hidden"
               accept="image/*"
-              capture
+              capture="environment"
             />
 
             <svg
@@ -209,10 +230,10 @@ export default function Upload() {
 
               <button
                 onClick={handleUpload}
-                disabled={uploadStatus === "uploading"}
+                disabled={uploadStatus === "uploading" || isProcessing}
                 className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-black px-6 text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
               >
-                {uploadStatus === "uploading" ? (
+                {uploadStatus === "uploading" || isProcessing ? (
                   <>
                     <svg
                       className="h-5 w-5 animate-spin"
@@ -233,10 +254,10 @@ export default function Upload() {
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       />
                     </svg>
-                    Uploading...
+                    {isProcessing ? "Processing OCR..." : "Uploading..."}
                   </>
                 ) : (
-                  "Upload File"
+                  "Upload & Extract Text"
                 )}
               </button>
             </div>
@@ -251,6 +272,56 @@ export default function Upload() {
               }`}
             >
               <p className="text-sm font-medium">{uploadMessage}</p>
+            </div>
+          )}
+
+          {extractedText && (
+            <div className="mt-6 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                  Extracted Text
+                </h3>
+                {ocrConfidence !== null && (
+                  <span
+                    className={`text-sm font-medium ${
+                      ocrConfidence > 80
+                        ? "text-green-600 dark:text-green-400"
+                        : ocrConfidence > 60
+                        ? "text-yellow-600 dark:text-yellow-400"
+                        : "text-red-600 dark:text-red-400"
+                    }`}
+                  >
+                    {ocrConfidence.toFixed(1)}% confidence
+                  </span>
+                )}
+              </div>
+              <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-800">
+                <pre className="whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-300 font-mono max-h-96 overflow-y-auto">
+                  {extractedText}
+                </pre>
+              </div>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(extractedText);
+                  alert("Text copied to clipboard!");
+                }}
+                className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  strokeWidth="2"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                </svg>
+                Copy to Clipboard
+              </button>
             </div>
           )}
         </div>
