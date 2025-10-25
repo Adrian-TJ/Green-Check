@@ -7,6 +7,13 @@ import fs from "fs";
 import path from "path";
 import sharp from "sharp";
 
+type DocumentType = "luz" | "agua" | "gas" | "gasolina";
+
+interface ParsedDocumentData {
+  documentType: DocumentType;
+  [key: string]: any;
+}
+
 const app = express();
 const PORT = process.env.NEXT_PUBLIC_OCR_SERVER_PORT || 3002;
 
@@ -89,6 +96,88 @@ async function preprocessImage(buffer: Buffer): Promise<Buffer> {
   }
 }
 
+/**
+ * Parse electricity bill (Luz)
+ * Extract relevant information from electricity bill text
+ */
+function parseLuzDocument(text: string): ParsedDocumentData {
+  // TODO: Implement electricity bill parsing logic
+  // Extract: account number, period, consumption (kWh), amount, due date, etc.
+  return {
+    documentType: "luz",
+    rawText: text,
+    // Add parsed fields here
+  };
+}
+
+/**
+ * Parse water bill (Agua)
+ * Extract relevant information from water bill text
+ */
+function parseAguaDocument(text: string): ParsedDocumentData {
+  // TODO: Implement water bill parsing logic
+  // Extract: account number, period, consumption (m³), amount, due date, etc.
+  return {
+    documentType: "agua",
+    rawText: text,
+    // Add parsed fields here
+  };
+}
+
+/**
+ * Parse gas bill (Gas)
+ * Extract relevant information from gas bill text
+ */
+function parseGasDocument(text: string): ParsedDocumentData {
+  // TODO: Implement gas bill parsing logic
+  // Extract: account number, period, consumption, amount, due date, etc.
+  return {
+    documentType: "gas",
+    rawText: text,
+    // Add parsed fields here
+  };
+}
+
+/**
+ * Parse gasoline receipt (Gasolina)
+ * Extract relevant information from gasoline receipt text
+ */
+function parseGasolinaDocument(text: string): ParsedDocumentData {
+  // TODO: Implement gasoline receipt parsing logic
+  // Extract: station name, date, liters, price per liter, total amount, etc.
+  return {
+    documentType: "gasolina",
+    rawText: text,
+    // Add parsed fields here
+  };
+}
+
+/**
+ * Route extracted text to appropriate parser based on document type
+ */
+function parseDocument(
+  text: string,
+  documentType: DocumentType
+): ParsedDocumentData {
+  console.log(`Parsing document of type: ${documentType}`);
+
+  switch (documentType) {
+    case "luz":
+      return parseLuzDocument(text);
+    case "agua":
+      return parseAguaDocument(text);
+    case "gas":
+      return parseGasDocument(text);
+    case "gasolina":
+      return parseGasolinaDocument(text);
+    default:
+      return {
+        documentType,
+        rawText: text,
+      };
+  }
+}
+
 // OCR upload endpoint
 app.post(
   "/api/ocr-upload",
@@ -104,8 +193,20 @@ app.post(
         return res.status(400).json({ error: "Upload ID is required" });
       }
 
+      const documentType = req.body.documentType as DocumentType;
+      if (
+        !documentType ||
+        !["luz", "agua", "gas", "gasolina"].includes(documentType)
+      ) {
+        return res
+          .status(400)
+          .json({
+            error: "Valid document type is required (luz, agua, gas, gasolina)",
+          });
+      }
+
       console.log(
-        `Processing file: ${req.file.originalname} for upload ID: ${uploadId}`
+        `Processing ${documentType} document: ${req.file.originalname} for upload ID: ${uploadId}`
       );
 
       // Preprocess the image for better OCR accuracy
@@ -134,13 +235,19 @@ app.post(
         `Extracted text preview: ${extractedText.substring(0, 100)}...`
       );
 
+      // Parse the extracted text based on document type
+      const parsedData = parseDocument(extractedText, documentType);
+      console.log(`Document parsed successfully`);
+
       // Return the OCR results
       res.json({
         success: true,
         uploadId,
+        documentType,
         fileName: req.file.originalname,
         fileSize: req.file.size,
         extractedText,
+        parsedData,
         confidence,
         wordCount: extractedText.trim().split(/\s+/).length,
         timestamp: new Date().toISOString(),

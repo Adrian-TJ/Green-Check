@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useState, useRef, useEffect } from "react";
+import { useParams, useSearchParams } from "next/navigation";
 
 export default function Upload() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const uploadId = params.id as string;
+  const documentType = searchParams.get("type") || "luz";
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -17,6 +19,13 @@ export default function Upload() {
   const [ocrConfidence, setOcrConfidence] = useState<number | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const documentTypeLabels: Record<string, { label: string }> = {
+    luz: { label: "Luz" },
+    agua: { label: "Agua" },
+    gas: { label: "Gas" },
+    gasolina: { label: "Gasolina" },
+  };
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
@@ -66,6 +75,7 @@ export default function Upload() {
       const formData = new FormData();
       formData.append("file", selectedFile);
       formData.append("uploadId", uploadId);
+      formData.append("documentType", documentType);
 
       // Send to Express OCR API
       const API_URL =
@@ -121,6 +131,10 @@ export default function Upload() {
             Drag and drop a file or click to browse
           </p>
           <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-blue-50 px-4 py-2 dark:bg-blue-950/20">
+            <span className="font-medium text-blue-600 dark:text-blue-400">
+              {documentTypeLabels[documentType]?.label || "Document"}
+            </span>
+            <span className="text-blue-400 dark:text-blue-500">•</span>
             <svg
               className="h-4 w-4 text-blue-600 dark:text-blue-400"
               fill="none"
