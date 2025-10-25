@@ -5,15 +5,17 @@ import { ThemeProvider, CssBaseline } from "@mui/material";
 import theme from "@/theme/theme";
 import { QueryProvider } from "@/providers/QueryProvider";
 
-export default function Providers({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function Providers({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   return (
     <QueryProvider>
       <ThemeProvider theme={theme}>
-        <CssBaseline />
+        {mounted && <CssBaseline />}
         {children}
       </ThemeProvider>
     </QueryProvider>

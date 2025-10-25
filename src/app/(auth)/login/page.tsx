@@ -216,14 +216,11 @@ export default function LoginPage(): React.JSX.Element {
         {/* Opciones adicionales */}
         <Box mt={4}>
           <Divider sx={{ mb: 2 }} />
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            textAlign="center"
-            sx={{ cursor: "pointer", "&:hover": { color: "primary.main" } }}
-          >
-            ¿Olvidaste tu contraseña?
-          </Typography>
+          <Box display="flex" justifyContent="center">
+            <Button variant="tertiary" disableRipple>
+              ¿Olvidaste tu contraseña?
+            </Button>
+          </Box>
         </Box>
 
         {/* Footer */}
