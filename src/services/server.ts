@@ -335,6 +335,48 @@ function parseLuzDocument(text: string): ParsedDocumentData {
 }
 
 /**
+ * Parse Agua date string to JavaScript Date
+ * Handles formats like: "OCT/2023", "ENE/2024"
+ * Returns the last day of the specified month
+ */
+function parseAguaDate(dateStr: string): Date | null {
+  try {
+    const monthMap: Record<string, number> = {
+      ENE: 0,
+      FEB: 1,
+      MAR: 2,
+      ABR: 3,
+      MAY: 4,
+      JUN: 5,
+      JUL: 6,
+      AGO: 7,
+      SEP: 8,
+      OCT: 9,
+      NOV: 10,
+      DIC: 11,
+    };
+
+    // Match pattern: month/year (e.g., "OCT/2023")
+    const match = dateStr.trim().match(/([A-Z]{3})\/(\d{4})/i);
+    if (!match) return null;
+
+    const monthStr = match[1].toUpperCase();
+    const year = parseInt(match[2], 10);
+
+    const month = monthMap[monthStr];
+    if (month === undefined) return null;
+
+    // Get the first day of the month
+    const date = new Date(year, month, 1);
+    console.log(`Parsed agua date "${dateStr}" to ${date.toISOString()}`);
+    return date;
+  } catch (error) {
+    console.error(`Failed to parse agua date "${dateStr}":`, error);
+    return null;
+  }
+}
+
+/**
  * Parse water bill (Agua)
  * Extract relevant information from water bill text
  */
@@ -352,6 +394,13 @@ function parseAguaDocument(text: string): ParsedDocumentData {
   if (mesFacturadoMatch) {
     parsedData.mesFacturado = mesFacturadoMatch[1].trim();
     console.log(`Mes facturado: ${parsedData.mesFacturado}`);
+
+    // Parse the billing month to use as the billing date
+    const billingDate = parseAguaDate(parsedData.mesFacturado);
+    if (billingDate) {
+      parsedData.billingDate = billingDate;
+      console.log(`Billing date extracted: ${billingDate.toISOString()}`);
+    }
   }
 
   // Extract LECTURA ANTERIOR (previous reading)
