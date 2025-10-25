@@ -452,6 +452,82 @@ export default function Upload() {
             </div>
           )}
 
+          {parsedData && parsedData.documentType === "gas" && (
+            <div className="mt-6 space-y-4">
+              <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                🔥 Parsed Gas Bill Information
+              </h3>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                {/* Reading Date */}
+                {parsedData.fechaActual && (
+                  <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800">
+                    <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+                      Fecha de Lectura
+                    </p>
+                    <p className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                      {parsedData.fechaActual}
+                    </p>
+                  </div>
+                )}
+
+                {/* Previous Reading */}
+                {parsedData.lecturaAnterior !== undefined && (
+                  <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800">
+                    <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+                      Lectura Anterior
+                    </p>
+                    <p className="text-base font-semibold text-zinc-700 dark:text-zinc-300">
+                      {parsedData.lecturaAnterior} m³
+                    </p>
+                  </div>
+                )}
+
+                {/* Current Reading */}
+                {parsedData.lecturaActual !== undefined && (
+                  <div className="rounded-lg border border-orange-200 bg-orange-50 p-4 dark:border-orange-800 dark:bg-orange-950/20">
+                    <p className="text-xs font-medium text-orange-600 dark:text-orange-400 mb-1">
+                      Lectura Actual
+                    </p>
+                    <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                      {parsedData.lecturaActual} m³
+                    </p>
+                  </div>
+                )}
+
+                {/* Gas Consumption */}
+                {parsedData.consumo !== undefined && (
+                  <div
+                    className={`rounded-lg border p-4 ${
+                      parsedData.consumo > 0
+                        ? "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/20"
+                        : "border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800"
+                    }`}
+                  >
+                    <p
+                      className={`text-xs font-medium mb-1 ${
+                        parsedData.consumo > 0
+                          ? "text-red-600 dark:text-red-400"
+                          : "text-zinc-500 dark:text-zinc-400"
+                      }`}
+                    >
+                      Consumo de Gas
+                    </p>
+                    <p
+                      className={`text-2xl font-bold ${
+                        parsedData.consumo > 0
+                          ? "text-red-700 dark:text-red-300"
+                          : "text-zinc-700 dark:text-zinc-300"
+                      }`}
+                    >
+                      {parsedData.consumo} m³
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {extractedText && (
             <div className="mt-6 space-y-3">
               <div className="flex items-center justify-between">
