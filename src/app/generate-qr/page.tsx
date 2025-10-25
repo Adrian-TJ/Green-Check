@@ -1,26 +1,38 @@
 "use client";
 
-import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+
+// Dynamically import the QR component with SSR disabled
+const QRCodeSVG = dynamic(
+  async () => (await import("qrcode.react")).QRCodeSVG,
+  { ssr: false }
+);
 
 type DocumentType = "luz" | "agua" | "gas" | "gasolina";
 
 export default function GenerateQR() {
-  const [uploadUrl, setUploadUrl] = useState("");
-  const [uniqueId, setUniqueId] = useState("");
+  const [mounted, setMounted] = useState(false);
+  const [uploadUrl, setUploadUrl] = useState<string>("");
+  const [uniqueId, setUniqueId] = useState<string>("");
   const [selectedDocType, setSelectedDocType] = useState<DocumentType>("luz");
 
+  // Ensure client-only rendering to avoid SSR/CSR mismatch
   useEffect(() => {
-    generateNewQR();
-  }, [selectedDocType]);
+    setMounted(true);
+  }, []);
 
-  const generateNewQR = () => {
+  // Generate a fresh URL whenever we're mounted or the doc type changes
+  useEffect(() => {
+    if (!mounted) return;
+
+    // All browser-only APIs live here
     const id = crypto.randomUUID();
-    setUniqueId(id);
-
     const baseUrl = window.location.origin;
+
+    setUniqueId(id);
     setUploadUrl(`${baseUrl}/upload/${id}?type=${selectedDocType}`);
-  };
+  }, [mounted, selectedDocType]);
 
   const handleDownloadQR = () => {
     const svg = document.getElementById("qr-code");
@@ -53,6 +65,9 @@ export default function GenerateQR() {
     { value: "gasolina", label: "Gasolina" },
   ];
 
+  // Avoid rendering anything that could differ during SSR vs CSR
+  if (!mounted) return null;
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-black">
       <main className="flex w-full max-w-2xl flex-col items-center gap-8 px-8 py-16">
@@ -84,9 +99,10 @@ export default function GenerateQR() {
           </div>
         </div>
 
-        {uploadUrl && (
+        {!!uploadUrl && (
           <div className="flex flex-col items-center gap-6 rounded-2xl bg-white p-8 shadow-lg dark:bg-zinc-900">
             <div className="rounded-xl bg-white p-6">
+              {/* Only render QR once we have a deterministic URL */}
               <QRCodeSVG id="qr-code" value={uploadUrl} size={256} level="H" />
             </div>
 
@@ -107,7 +123,13 @@ export default function GenerateQR() {
 
               <button
                 onClick={() => {
-                  generateNewQR();
+                  // Client-only regeneration
+                  const id = crypto.randomUUID();
+                  const baseUrl = window.location.origin;
+                  setUniqueId(id);
+                  setUploadUrl(
+                    `${baseUrl}/upload/${id}?type=${selectedDocType}`
+                  );
                 }}
                 className="flex h-12 w-full items-center justify-center gap-2 rounded-full border border-solid border-black/8 px-6 transition-colors hover:border-transparent hover:bg-black/4 dark:border-white/[.145] dark:hover:bg-white/10"
               >
