@@ -172,9 +172,9 @@ export default function Upload() {
           consumption = data.parsedData.ultimaLectura;
         } else if (
           data.parsedData.documentType === "gas" &&
-          data.parsedData.consumo !== undefined
+          data.parsedData.lecturaActual !== undefined
         ) {
-          consumption = data.parsedData.consumo;
+          consumption = data.parsedData.lecturaActual;
         } else if (
           data.parsedData.documentType === "transporte" &&
           data.parsedData.consumo !== undefined

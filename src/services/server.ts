@@ -427,6 +427,68 @@ function parseAguaDocument(text: string): ParsedDocumentData {
 }
 
 /**
+ * Parse Gas date string to JavaScript Date
+ * Handles formats like: "14Oct22", "140ct22" (with OCR errors)
+ * OCR often confuses O and 0, so we handle both cases
+ */
+function parseGasDate(dateStr: string): Date | null {
+  try {
+    const monthMap: Record<string, number> = {
+      ENE: 0,
+      FEB: 1,
+      MAR: 2,
+      ABR: 3,
+      MAY: 4,
+      JUN: 5,
+      JUL: 6,
+      AGO: 7,
+      SEP: 8,
+      OCT: 9,
+      NOV: 10,
+      DIC: 11,
+    };
+
+    // Clean up OCR errors: replace 0 with O in potential month names
+    let cleanedDateStr = dateStr.trim();
+    // Replace 0 with O when it appears in the middle of letters (likely a month name)
+    cleanedDateStr = cleanedDateStr.replace(/([a-z])0([a-z])/gi, "$1O$2");
+    cleanedDateStr = cleanedDateStr.replace(/^(\d{1,2})0ct/i, "$1OCT");
+
+    // Match pattern: day + month (3 letters) + year (2 digits)
+    // Examples: "14Oct22", "14OCT22", "01Ene23"
+    const match = cleanedDateStr.match(/(\d{1,2})([a-z]{3})(\d{2})/i);
+    if (!match) {
+      console.log(`Gas date format not recognized: "${dateStr}"`);
+      return null;
+    }
+
+    const day = parseInt(match[1], 10);
+    const monthStr = match[2].toUpperCase();
+    let year = parseInt(match[3], 10);
+
+    // Convert 2-digit year to 4-digit
+    if (year < 100) {
+      year += year < 50 ? 2000 : 1900;
+    }
+
+    const month = monthMap[monthStr];
+    if (month === undefined) {
+      console.log(`Unknown month in gas date: "${monthStr}"`);
+      return null;
+    }
+
+    const date = new Date(year, month, day);
+    console.log(
+      `Parsed gas date "${dateStr}" (cleaned: "${cleanedDateStr}") to ${date.toISOString()}`
+    );
+    return date;
+  } catch (error) {
+    console.error(`Failed to parse gas date "${dateStr}":`, error);
+    return null;
+  }
+}
+
+/**
  * Parse gas bill (Gas)
  * Extract relevant information from gas bill text
  */
@@ -446,6 +508,13 @@ function parseGasDocument(text: string): ParsedDocumentData {
     parsedData.fechaActual = actualMatch[2].trim();
     console.log(`Lectura actual: ${parsedData.lecturaActual}`);
     console.log(`Fecha actual: ${parsedData.fechaActual}`);
+
+    // Parse the gas date to use as the billing date
+    const billingDate = parseGasDate(parsedData.fechaActual);
+    if (billingDate) {
+      parsedData.billingDate = billingDate;
+      console.log(`Billing date extracted: ${billingDate.toISOString()}`);
+    }
   }
 
   // Extract Anterior/Anteror reading
