@@ -25,7 +25,7 @@ export default function LoginPage(): React.JSX.Element {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        bgcolor: "#f5f5f5",
+        bgcolor: "background.default",
         p: 2,
       }}
     >
@@ -36,85 +36,48 @@ export default function LoginPage(): React.JSX.Element {
           maxWidth: 420,
           p: 5,
           borderRadius: 3,
-          background: "white",
-          borderTop: "6px solid #E60026",
+          backgroundColor: "background.paper",
         }}
       >
-        {/* Logo Banorte */}
-        <Box display="flex" justifyContent="center" mb={3}>
+        {/* Logo */}
+        <Box display="flex" justifyContent="center" mb={4}>
           <Image
             src="https://upload.wikimedia.org/wikipedia/commons/5/53/Logo_de_Banorte.svg"
             alt="Banorte logo"
             width={180}
             height={40}
-            style={{
-              objectFit: "contain",
-            }}
+            style={{ objectFit: "contain" }}
           />
         </Box>
 
         {/* Título */}
-        <Typography
-          variant="h5"
-          fontWeight="bold"
-          color="#E60026"
-          textAlign="center"
-          mb={1}
-        >
+        <Typography variant="h5" color="primary" textAlign="center" mb={1}>
           GreenCheck
         </Typography>
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          textAlign="center"
-          mb={4}
-        >
-          Bienvenido al portal de empresas sostenibles 
+
+        <Typography variant="body2" color="text.secondary" textAlign="center" mb={4}>
+          Bienvenido al portal de empresas sostenibles
         </Typography>
 
         {/* Formulario */}
         <form onSubmit={handleSubmit}>
-          <Stack spacing={2.5}>
-            <TextField
-              label="Usuario"
-              fullWidth
-              variant="outlined"
-              InputLabelProps={{ shrink: true }}
-            />
-            <TextField
-              label="Contraseña"
-              type="password"
-              fullWidth
-              variant="outlined"
-              InputLabelProps={{ shrink: true }}
-            />
-
-            <Button
-              type="submit"
-              variant="contained"
-              fullWidth
-              sx={{
-                bgcolor: "#E60026",
-                "&:hover": { bgcolor: "#B5001C" },
-                textTransform: "none",
-                py: 1.4,
-                fontWeight: "bold",
-                fontSize: "1rem",
-              }}
-            >
+          <Stack spacing={3}>
+            <TextField label="Usuario" fullWidth />
+            <TextField label="Contraseña" type="password" fullWidth />
+            <Button type="submit" variant="contained" fullWidth>
               Ingresar
             </Button>
           </Stack>
         </form>
 
         {/* Opciones adicionales */}
-        <Box mt={3}>
+        <Box mt={4}>
           <Divider sx={{ mb: 2 }} />
           <Typography
             variant="body2"
             color="text.secondary"
             textAlign="center"
-            sx={{ cursor: "pointer", "&:hover": { color: "#E60026" } }}
+            sx={{ cursor: "pointer", "&:hover": { color: "primary.main" } }}
           >
             ¿Olvidaste tu contraseña?
           </Typography>
@@ -125,10 +88,10 @@ export default function LoginPage(): React.JSX.Element {
           variant="caption"
           display="block"
           textAlign="center"
-          mt={4}
+          mt={5}
           color="text.disabled"
         >
-          © Todos los derechos reservados.
+          © Banorte. Todos los derechos reservados.
         </Typography>
       </Paper>
     </Box>
