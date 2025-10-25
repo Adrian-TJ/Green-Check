@@ -64,7 +64,8 @@ export default function LoginPage(): React.JSX.Element {
           <Stack spacing={3}>
             <TextField label="Usuario" fullWidth />
             <TextField label="Contraseña" type="password" fullWidth />
-            <Button type="submit" variant="contained" fullWidth>
+            {/* Botón principal con variante de marca */}
+            <Button type="submit" variant="primary" fullWidth>
               Ingresar
             </Button>
           </Stack>
@@ -73,14 +74,12 @@ export default function LoginPage(): React.JSX.Element {
         {/* Opciones adicionales */}
         <Box mt={4}>
           <Divider sx={{ mb: 2 }} />
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            textAlign="center"
-            sx={{ cursor: "pointer", "&:hover": { color: "primary.main" } }}
-          >
-            ¿Olvidaste tu contraseña?
-          </Typography>
+          {/* Enlace como botón terciario para heredar tipografía/hover del theme */}
+          <Box display="flex" justifyContent="center">
+            <Button variant="tertiary" disableRipple>
+              ¿Olvidaste tu contraseña?
+            </Button>
+          </Box>
         </Box>
 
         {/* Footer */}
