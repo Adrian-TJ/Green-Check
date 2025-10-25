@@ -3,6 +3,7 @@
 import * as React from "react";
 import { ThemeProvider, CssBaseline } from "@mui/material";
 import theme from "@/theme/theme";
+import { QueryProvider } from "@/providers/QueryProvider";
 
 export default function Providers({
   children,
@@ -10,9 +11,11 @@ export default function Providers({
   children: React.ReactNode;
 }) {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      {children}
-    </ThemeProvider>
+    <QueryProvider>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        {children}
+      </ThemeProvider>
+    </QueryProvider>
   );
 }
