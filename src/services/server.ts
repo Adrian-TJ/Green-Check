@@ -6,7 +6,34 @@ import https from "https";
 import fs from "fs";
 import path from "path";
 import sharp from "sharp";
+
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+const BUCKET_NAME = process.env.BUCKET_NAME;
+const BUCKET_REGION = process.env.BUCKET_REGION;
+const AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID;
+const AWS_SECRET_KEY = process.env.AWS_SECRET_KEY;
+
+let s3: S3Client | undefined = undefined;
+if (AWS_ACCESS_KEY_ID && AWS_SECRET_KEY && BUCKET_REGION) {
+  s3 = new S3Client({
+    credentials: {
+      accessKeyId: AWS_ACCESS_KEY_ID,
+      secretAccessKey: AWS_SECRET_KEY,
+    },
+    region: BUCKET_REGION,
+  });
+} else {
+  console.warn(
+    "AWS S3 client not created: set AWS_ACCESS_KEY_ID, AWS_SECRET_KEY and BUCKET_REGION to enable S3."
+  );
+}
+
 import crypto from "crypto";
+
 
 type DocumentType = "luz" | "agua" | "gas" | "gasolina";
 
@@ -30,7 +57,7 @@ const qrCodeStore = new Map<string, QRCodeEntry>();
 const QR_EXPIRATION_MS = 24 * 60 * 60 * 1000;
 
 const app = express();
-const PORT = process.env.NEXT_PUBLIC_OCR_SERVER_PORT || 3002;
+const PORT = process.env.NEXT_PUBLIC_OCR_SERVER_PORT;
 
 // Load SSL certificates
 const sslOptions = {
@@ -406,9 +433,12 @@ app.post(
   upload.single("file"),
   async (req: Request, res: Response) => {
     try {
-      if (!req.file) {
-        return res.status(400).json({ error: "No file uploaded" });
+      if (!req.file || !req.file.buffer) {
+        return res
+          .status(400)
+          .json({ error: "No file uploaded or file is empty" });
       }
+      console.log("File size:", req.file.buffer.length);
 
       const uploadId = req.body.uploadId;
       if (!uploadId) {
@@ -450,9 +480,28 @@ app.post(
         `Processing ${documentType} document: ${req.file.originalname} for upload ID: ${uploadId}`
       );
 
+
+      
+      const params = {
+        Bucket: BUCKET_NAME,
+        Key: req.file.originalname,
+        Body: req.file.buffer,
+        ContentType: req.file.mimetype,
+      };
+
+      let command: PutObjectCommand | undefined = undefined;
+      if (req.file && req.file.buffer) {
+        command = new PutObjectCommand(params);
+        await s3?.send(command)
+        console.log("File uploaded successfully");
+      }
+
+      console.log(req.file.buffer)
+
       // Mark QR code as used immediately to prevent concurrent uploads
       qrEntry.used = true;
       qrEntry.usedAt = now;
+
 
       // Preprocess the image for better OCR accuracy
       console.log("Preprocessing image for better OCR accuracy...");
