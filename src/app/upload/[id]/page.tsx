@@ -376,6 +376,82 @@ export default function Upload() {
             </div>
           )}
 
+          {parsedData && parsedData.documentType === "agua" && (
+            <div className="mt-6 space-y-4">
+              <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                💧 Parsed Water Bill Information
+              </h3>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                {/* Billing Month */}
+                {parsedData.mesFacturado && (
+                  <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800">
+                    <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+                      Mes Facturado
+                    </p>
+                    <p className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                      {parsedData.mesFacturado}
+                    </p>
+                  </div>
+                )}
+
+                {/* Previous Reading */}
+                {parsedData.lecturaAnterior !== undefined && (
+                  <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800">
+                    <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+                      Lectura Anterior
+                    </p>
+                    <p className="text-base font-semibold text-zinc-700 dark:text-zinc-300">
+                      {parsedData.lecturaAnterior} m³
+                    </p>
+                  </div>
+                )}
+
+                {/* Last Reading */}
+                {parsedData.ultimaLectura !== undefined && (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/20">
+                    <p className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">
+                      Última Lectura
+                    </p>
+                    <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                      {parsedData.ultimaLectura} m³
+                    </p>
+                  </div>
+                )}
+
+                {/* Water Consumption */}
+                {parsedData.consumo !== undefined && (
+                  <div
+                    className={`rounded-lg border p-4 ${
+                      parsedData.consumo > 0
+                        ? "border-cyan-200 bg-cyan-50 dark:border-cyan-800 dark:bg-cyan-950/20"
+                        : "border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800"
+                    }`}
+                  >
+                    <p
+                      className={`text-xs font-medium mb-1 ${
+                        parsedData.consumo > 0
+                          ? "text-cyan-600 dark:text-cyan-400"
+                          : "text-zinc-500 dark:text-zinc-400"
+                      }`}
+                    >
+                      Consumo de Agua
+                    </p>
+                    <p
+                      className={`text-2xl font-bold ${
+                        parsedData.consumo > 0
+                          ? "text-cyan-700 dark:text-cyan-300"
+                          : "text-zinc-700 dark:text-zinc-300"
+                      }`}
+                    >
+                      {parsedData.consumo} m³
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {extractedText && (
             <div className="mt-6 space-y-3">
               <div className="flex items-center justify-between">

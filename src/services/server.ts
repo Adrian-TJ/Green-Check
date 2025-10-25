@@ -139,13 +139,42 @@ function parseLuzDocument(text: string): ParsedDocumentData {
  * Extract relevant information from water bill text
  */
 function parseAguaDocument(text: string): ParsedDocumentData {
-  // TODO: Implement water bill parsing logic
-  // Extract: account number, period, consumption (m³), amount, due date, etc.
-  return {
+  const parsedData: ParsedDocumentData = {
     documentType: "agua",
     rawText: text,
-    // Add parsed fields here
   };
+
+  // Extract billing month (MES FACTURADO)
+  // Pattern matches: "MES FACTURADO" followed by month/year (e.g., "OCT/2023")
+  const mesFacturadoMatch = text.match(
+    /MES\s+FACTURADO[:\s]+([A-Z]{3}\/\d{4})/i
+  );
+  if (mesFacturadoMatch) {
+    parsedData.mesFacturado = mesFacturadoMatch[1].trim();
+    console.log(`Mes facturado: ${parsedData.mesFacturado}`);
+  }
+
+  // Extract LECTURA ANTERIOR (previous reading)
+  const lecturaAnteriorMatch = text.match(/LECTURA\s+ANTERIOR[:\s]+(\d+)/i);
+  if (lecturaAnteriorMatch) {
+    parsedData.lecturaAnterior = parseInt(lecturaAnteriorMatch[1], 10);
+    console.log(`Lectura anterior: ${parsedData.lecturaAnterior}`);
+  }
+
+  // Extract ULTIMA LECTURA (last reading)
+  const ultimaLecturaMatch = text.match(/ULTIMA\s+LECTURA[:\s+]+(\d+)/i);
+  if (ultimaLecturaMatch) {
+    parsedData.ultimaLectura = parseInt(ultimaLecturaMatch[1], 10);
+    console.log(`Ultima lectura: ${parsedData.ultimaLectura}`);
+  }
+
+  // Calculate consumption if both readings are available
+  if (parsedData.ultimaLectura && parsedData.lecturaAnterior) {
+    parsedData.consumo = parsedData.ultimaLectura - parsedData.lecturaAnterior;
+    console.log(`Consumo: ${parsedData.consumo} m³`);
+  }
+
+  return parsedData;
 }
 
 /**
