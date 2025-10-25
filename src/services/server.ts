@@ -6,6 +6,7 @@ import https from "https";
 import fs from "fs";
 import path from "path";
 import sharp from "sharp";
+
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import dotenv from "dotenv";
 
@@ -31,12 +32,29 @@ if (AWS_ACCESS_KEY_ID && AWS_SECRET_KEY && BUCKET_REGION) {
   );
 }
 
+import crypto from "crypto";
+
+
 type DocumentType = "luz" | "agua" | "gas" | "gasolina";
 
 interface ParsedDocumentData {
   documentType: DocumentType;
   [key: string]: any;
 }
+
+interface QRCodeEntry {
+  id: string;
+  documentType: DocumentType;
+  createdAt: Date;
+  used: boolean;
+  usedAt?: Date;
+}
+
+// In-memory storage for QR codes
+const qrCodeStore = new Map<string, QRCodeEntry>();
+
+// QR code expiration time (24 hours)
+const QR_EXPIRATION_MS = 24 * 60 * 60 * 1000;
 
 const app = express();
 const PORT = process.env.NEXT_PUBLIC_OCR_SERVER_PORT;
@@ -75,6 +93,135 @@ const upload = multer({
 // Health check endpoint
 app.get("/health", (req: Request, res: Response) => {
   res.json({ status: "ok", message: "OCR Server is running" });
+});
+
+/**
+ * Cleanup expired and used QR codes
+ */
+function cleanupExpiredQRCodes() {
+  const now = new Date();
+  let cleanupCount = 0;
+
+  qrCodeStore.forEach((entry, id) => {
+    const ageMs = now.getTime() - entry.createdAt.getTime();
+
+    // Delete if expired or used
+    if (entry.used || ageMs > QR_EXPIRATION_MS) {
+      qrCodeStore.delete(id);
+      cleanupCount++;
+    }
+  });
+
+  if (cleanupCount > 0) {
+    console.log(`Cleaned up ${cleanupCount} expired/used QR codes`);
+  }
+}
+
+// Run cleanup every hour
+setInterval(cleanupExpiredQRCodes, 60 * 60 * 1000);
+
+/**
+ * Generate a new QR code
+ */
+app.post("/api/qr-generate", (req: Request, res: Response) => {
+  try {
+    const { documentType } = req.body;
+
+    if (
+      !documentType ||
+      !["luz", "agua", "gas", "gasolina"].includes(documentType)
+    ) {
+      return res.status(400).json({
+        error: "Valid document type is required (luz, agua, gas, gasolina)",
+      });
+    }
+
+    // Generate unique ID
+    const id = crypto.randomUUID();
+
+    // Store QR code entry
+    const entry: QRCodeEntry = {
+      id,
+      documentType,
+      createdAt: new Date(),
+      used: false,
+    };
+
+    qrCodeStore.set(id, entry);
+
+    console.log(
+      `Generated QR code: ${id} for ${documentType} (Total active: ${qrCodeStore.size})`
+    );
+
+    res.json({
+      success: true,
+      id,
+      documentType,
+      expiresIn: QR_EXPIRATION_MS,
+      timestamp: entry.createdAt.toISOString(),
+    });
+  } catch (error) {
+    console.error("QR Generation Error:", error);
+    res.status(500).json({
+      error: "Failed to generate QR code",
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});
+
+/**
+ * Validate a QR code
+ */
+app.get("/api/qr-validate/:id", (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({ error: "QR code ID is required" });
+    }
+
+    const entry = qrCodeStore.get(id);
+
+    if (!entry) {
+      return res.status(404).json({
+        valid: false,
+        error: "QR code not found or expired",
+      });
+    }
+
+    if (entry.used) {
+      return res.status(400).json({
+        valid: false,
+        error: "QR code has already been used",
+        usedAt: entry.usedAt,
+      });
+    }
+
+    const now = new Date();
+    const ageMs = now.getTime() - entry.createdAt.getTime();
+
+    if (ageMs > QR_EXPIRATION_MS) {
+      qrCodeStore.delete(id);
+      return res.status(400).json({
+        valid: false,
+        error: "QR code has expired",
+      });
+    }
+
+    res.json({
+      valid: true,
+      id: entry.id,
+      documentType: entry.documentType,
+      createdAt: entry.createdAt,
+      expiresAt: new Date(entry.createdAt.getTime() + QR_EXPIRATION_MS),
+    });
+  } catch (error) {
+    console.error("QR Validation Error:", error);
+    res.status(500).json({
+      error: "Failed to validate QR code",
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
 });
 
 /**
@@ -206,13 +353,38 @@ function parseAguaDocument(text: string): ParsedDocumentData {
  * Extract relevant information from gas bill text
  */
 function parseGasDocument(text: string): ParsedDocumentData {
-  // TODO: Implement gas bill parsing logic
-  // Extract: account number, period, consumption, amount, due date, etc.
-  return {
+  const parsedData: ParsedDocumentData = {
     documentType: "gas",
     rawText: text,
-    // Add parsed fields here
   };
+
+  // Extract Actual reading and date
+  // Pattern matches: "Actual" followed by reading number and date in parentheses
+  const actualMatch = text.match(
+    /Actual\s+(\d+)\s*\(\s*(\d{1,2}\w{3}\d{2})\s*\)/i
+  );
+  if (actualMatch) {
+    parsedData.lecturaActual = parseInt(actualMatch[1], 10);
+    parsedData.fechaActual = actualMatch[2].trim();
+    console.log(`Lectura actual: ${parsedData.lecturaActual}`);
+    console.log(`Fecha actual: ${parsedData.fechaActual}`);
+  }
+
+  // Extract Anterior/Anteror reading
+  // Pattern matches: "Anterior" or "Anteror" followed by reading number
+  const anteriorMatch = text.match(/Ante[rn]or\s+(\d+)/i);
+  if (anteriorMatch) {
+    parsedData.lecturaAnterior = parseInt(anteriorMatch[1], 10);
+    console.log(`Lectura anterior: ${parsedData.lecturaAnterior}`);
+  }
+
+  // Calculate consumption if both readings are available
+  if (parsedData.lecturaActual && parsedData.lecturaAnterior) {
+    parsedData.consumo = parsedData.lecturaActual - parsedData.lecturaAnterior;
+    console.log(`Consumo: ${parsedData.consumo} m³`);
+  }
+
+  return parsedData;
 }
 
 /**
@@ -273,19 +445,41 @@ app.post(
         return res.status(400).json({ error: "Upload ID is required" });
       }
 
-      const documentType = req.body.documentType as DocumentType;
-      if (
-        !documentType ||
-        !["luz", "agua", "gas", "gasolina"].includes(documentType)
-      ) {
-        return res.status(400).json({
-          error: "Valid document type is required (luz, agua, gas, gasolina)",
+      // Validate QR code
+      const qrEntry = qrCodeStore.get(uploadId);
+
+      if (!qrEntry) {
+        return res.status(404).json({
+          error: "Invalid QR code",
+          message: "QR code not found or has expired",
         });
       }
+
+      if (qrEntry.used) {
+        return res.status(400).json({
+          error: "QR code already used",
+          message: "This QR code has already been used",
+          usedAt: qrEntry.usedAt,
+        });
+      }
+
+      // Check if QR code is expired
+      const now = new Date();
+      const ageMs = now.getTime() - qrEntry.createdAt.getTime();
+      if (ageMs > QR_EXPIRATION_MS) {
+        qrCodeStore.delete(uploadId);
+        return res.status(400).json({
+          error: "QR code expired",
+          message: "This QR code has expired",
+        });
+      }
+
+      const documentType = qrEntry.documentType;
 
       console.log(
         `Processing ${documentType} document: ${req.file.originalname} for upload ID: ${uploadId}`
       );
+
 
       
       const params = {
@@ -303,6 +497,12 @@ app.post(
       }
 
       console.log(req.file.buffer)
+
+      // Mark QR code as used immediately to prevent concurrent uploads
+      qrEntry.used = true;
+      qrEntry.usedAt = now;
+
+
       // Preprocess the image for better OCR accuracy
       console.log("Preprocessing image for better OCR accuracy...");
       const preprocessedBuffer = await preprocessImage(req.file.buffer);
@@ -333,6 +533,12 @@ app.post(
       const parsedData = parseDocument(extractedText, documentType);
       console.log(`Document parsed successfully`);
 
+      // Delete the QR code after successful processing
+      qrCodeStore.delete(uploadId);
+      console.log(
+        `QR code ${uploadId} has been deleted after use (Remaining: ${qrCodeStore.size})`
+      );
+
       // Return the OCR results
       res.json({
         success: true,
@@ -348,6 +554,18 @@ app.post(
       });
     } catch (error) {
       console.error("OCR Error:", error);
+
+      // If there was an error, unmark the QR code as used so user can retry
+      const uploadId = req.body.uploadId;
+      if (uploadId) {
+        const qrEntry = qrCodeStore.get(uploadId);
+        if (qrEntry && qrEntry.used) {
+          qrEntry.used = false;
+          delete qrEntry.usedAt;
+          console.log(`QR code ${uploadId} unmarked as used due to error`);
+        }
+      }
+
       res.status(500).json({
         error: "Failed to process image",
         message: error instanceof Error ? error.message : "Unknown error",
