@@ -7,8 +7,11 @@ import fs from "fs";
 import path from "path";
 import sharp from "sharp";
 import crypto from "crypto";
+import { PrismaClient } from "@prisma/client";
 
-type DocumentType = "luz" | "agua" | "gas" | "gasolina";
+const prisma = new PrismaClient();
+
+type DocumentType = "luz" | "agua" | "gas" | "transporte";
 
 interface ParsedDocumentData {
   documentType: DocumentType;
@@ -102,10 +105,10 @@ app.post("/api/qr-generate", (req: Request, res: Response) => {
 
     if (
       !documentType ||
-      !["luz", "agua", "gas", "gasolina"].includes(documentType)
+      !["luz", "agua", "gas", "transporte"].includes(documentType)
     ) {
       return res.status(400).json({
-        error: "Valid document type is required (luz, agua, gas, gasolina)",
+        error: "Valid document type is required (luz, agua, gas, transporte)",
       });
     }
 
@@ -241,6 +244,52 @@ async function preprocessImage(buffer: Buffer): Promise<Buffer> {
 }
 
 /**
+ * Parse luz date string to JavaScript Date
+ * Handles formats like: "20 FEB20", "18 DIC19", "01 ENE 2020"
+ */
+function parseLuzDate(dateStr: string): Date | null {
+  try {
+    const monthMap: Record<string, number> = {
+      ENE: 0,
+      FEB: 1,
+      MAR: 2,
+      ABR: 3,
+      MAY: 4,
+      JUN: 5,
+      JUL: 6,
+      AGO: 7,
+      SEP: 8,
+      OCT: 9,
+      NOV: 10,
+      DIC: 11,
+    };
+
+    // Match pattern: day month year (e.g., "20 FEB20" or "20 FEB 2020")
+    const match = dateStr.trim().match(/(\d{1,2})\s+([A-Z]{3})\s?(\d{2,4})/i);
+    if (!match) return null;
+
+    const day = parseInt(match[1], 10);
+    const monthStr = match[2].toUpperCase();
+    let year = parseInt(match[3], 10);
+
+    // Convert 2-digit year to 4-digit (assume 2000s for years < 50, 1900s for >= 50)
+    if (year < 100) {
+      year += year < 50 ? 2000 : 1900;
+    }
+
+    const month = monthMap[monthStr];
+    if (month === undefined) return null;
+
+    const date = new Date(year, month, day);
+    console.log(`Parsed date "${dateStr}" to ${date.toISOString()}`);
+    return date;
+  } catch (error) {
+    console.error(`Failed to parse date "${dateStr}":`, error);
+    return null;
+  }
+}
+
+/**
  * Parse electricity bill (Luz)
  * Extract relevant information from electricity bill text
  */
@@ -260,6 +309,13 @@ function parseLuzDocument(text: string): ParsedDocumentData {
     parsedData.periodoFin = periodoMatch[2].trim();
     parsedData.periodo = `${periodoMatch[1].trim()} - ${periodoMatch[2].trim()}`;
     console.log(`Periodo facturado: ${parsedData.periodo}`);
+
+    // Parse the end date (periodoFin) to use as the billing date
+    const billingDate = parseLuzDate(parsedData.periodoFin);
+    if (billingDate) {
+      parsedData.billingDate = billingDate;
+      console.log(`Billing date extracted: ${billingDate.toISOString()}`);
+    }
   }
 
   // Extract energy consumption (Energía kWh)
@@ -361,14 +417,14 @@ function parseGasDocument(text: string): ParsedDocumentData {
 }
 
 /**
- * Parse gasoline receipt (Gasolina)
+ * Parse gasoline receipt (transporte)
  * Extract relevant information from gasoline receipt text
  */
-function parseGasolinaDocument(text: string): ParsedDocumentData {
+function parsetransporteDocument(text: string): ParsedDocumentData {
   // TODO: Implement gasoline receipt parsing logic
   // Extract: station name, date, liters, price per liter, total amount, etc.
   return {
-    documentType: "gasolina",
+    documentType: "transporte",
     rawText: text,
     // Add parsed fields here
   };
@@ -390,8 +446,8 @@ function parseDocument(
       return parseAguaDocument(text);
     case "gas":
       return parseGasDocument(text);
-    case "gasolina":
-      return parseGasolinaDocument(text);
+    case "transporte":
+      return parsetransporteDocument(text);
     default:
       return {
         documentType,
@@ -524,6 +580,101 @@ app.post(
     }
   }
 );
+
+/**
+ * Save resource consumption data to database
+ */
+app.post("/api/save-resource", async (req: Request, res: Response) => {
+  try {
+    const { pymeId, documentType, consumption, parsedData } = req.body;
+
+    // Validate required fields
+    if (!pymeId || !documentType || consumption === undefined) {
+      return res.status(400).json({
+        error: "Missing required fields",
+        message: "pymeId, documentType, and consumption are required",
+      });
+    }
+
+    // Validate Pyme exists
+    const pyme = await prisma.pyme.findUnique({
+      where: { id: pymeId },
+    });
+
+    if (!pyme) {
+      return res.status(404).json({
+        error: "Pyme not found",
+        message: "The specified Pyme does not exist",
+      });
+    }
+
+    // Map document types to resource types
+    const documentTypeToResourceType: Record<string, string> = {
+      luz: "LUZ",
+      agua: "AGUA",
+      gas: "GAS",
+      transporte: "TRANSPORTE",
+    };
+
+    const resourceType = documentTypeToResourceType[documentType];
+
+    if (!resourceType) {
+      return res.status(400).json({
+        error: "Invalid document type",
+        message: "Document type must be one of: luz, agua, gas, transporte",
+      });
+    }
+
+    // Determine the date to use
+    let resourceDate = new Date(); // Default to now
+
+    // If parsedData contains a billingDate, use that instead
+    if (parsedData && parsedData.billingDate) {
+      const billingDate = new Date(parsedData.billingDate);
+      if (!isNaN(billingDate.getTime())) {
+        resourceDate = billingDate;
+        console.log(
+          `Using billing date from parsed data: ${resourceDate.toISOString()}`
+        );
+      }
+    }
+
+    // Create resource name with type and date
+    const formattedDate = `${
+      resourceDate.getMonth() + 1
+    }/${resourceDate.getDate()}/${resourceDate.getFullYear()}`;
+    const resourceName = `Consumo de ${resourceType.toLowerCase()}`;
+
+    // Create resource in database
+    const resource = await prisma.resources.create({
+      data: {
+        name: resourceName,
+        type: resourceType as any, // Cast to enum type
+        consumption: parseFloat(consumption.toString()),
+        pymeId,
+        date: resourceDate, // Use the billing date from parsed data or current date
+      },
+    });
+
+    console.log(
+      `Resource saved: ${
+        resource.id
+      } - ${resourceName} (${consumption}) on ${resourceDate.toISOString()}`
+    );
+
+    res.json({
+      success: true,
+      message: "Resource created successfully",
+      data: resource,
+    });
+  } catch (error) {
+    console.error("Save Resource Error:", error);
+    res.status(500).json({
+      error: "Failed to save resource",
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});
 
 // Start the HTTPS server
 https.createServer(sslOptions, app).listen(PORT, () => {

@@ -9,7 +9,7 @@ const QRCodeSVG = dynamic(
   { ssr: false }
 );
 
-type DocumentType = "luz" | "agua" | "gas" | "gasolina";
+type DocumentType = "luz" | "agua" | "gas" | "transporte";
 type ComponentSize = "small" | "medium" | "large";
 
 interface QRCodeDisplayProps {
@@ -21,7 +21,7 @@ const documentTypeLabels: Record<DocumentType, string> = {
   luz: "Luz",
   agua: "Agua",
   gas: "Gas",
-  gasolina: "Gasolina",
+  transporte: "Transporte",
 };
 
 const sizeConfig = {

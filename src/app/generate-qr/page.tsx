@@ -3,7 +3,7 @@
 import { useState } from "react";
 import QRCodeDisplay from "@/components/QRCodeDisplay";
 
-type DocumentType = "luz" | "agua" | "gas" | "gasolina";
+type DocumentType = "luz" | "agua" | "gas" | "transporte";
 
 export default function GenerateQR() {
   const [selectedDocType, setSelectedDocType] = useState<DocumentType>("luz");
@@ -12,7 +12,7 @@ export default function GenerateQR() {
     { value: "luz", label: "Luz" },
     { value: "agua", label: "Agua" },
     { value: "gas", label: "Gas" },
-    { value: "gasolina", label: "Gasolina" },
+    { value: "transporte", label: "Transporte" },
   ];
 
   return (
