@@ -26,7 +26,6 @@ export async function verifyUserService(
       include: { pyme: true },
     });
 
-    console.log("Found user:", user);
 
     if (!user) {
       return {
