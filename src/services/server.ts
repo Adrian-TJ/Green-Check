@@ -182,13 +182,38 @@ function parseAguaDocument(text: string): ParsedDocumentData {
  * Extract relevant information from gas bill text
  */
 function parseGasDocument(text: string): ParsedDocumentData {
-  // TODO: Implement gas bill parsing logic
-  // Extract: account number, period, consumption, amount, due date, etc.
-  return {
+  const parsedData: ParsedDocumentData = {
     documentType: "gas",
     rawText: text,
-    // Add parsed fields here
   };
+
+  // Extract Actual reading and date
+  // Pattern matches: "Actual" followed by reading number and date in parentheses
+  const actualMatch = text.match(
+    /Actual\s+(\d+)\s*\(\s*(\d{1,2}\w{3}\d{2})\s*\)/i
+  );
+  if (actualMatch) {
+    parsedData.lecturaActual = parseInt(actualMatch[1], 10);
+    parsedData.fechaActual = actualMatch[2].trim();
+    console.log(`Lectura actual: ${parsedData.lecturaActual}`);
+    console.log(`Fecha actual: ${parsedData.fechaActual}`);
+  }
+
+  // Extract Anterior/Anteror reading
+  // Pattern matches: "Anterior" or "Anteror" followed by reading number
+  const anteriorMatch = text.match(/Ante[rn]or\s+(\d+)/i);
+  if (anteriorMatch) {
+    parsedData.lecturaAnterior = parseInt(anteriorMatch[1], 10);
+    console.log(`Lectura anterior: ${parsedData.lecturaAnterior}`);
+  }
+
+  // Calculate consumption if both readings are available
+  if (parsedData.lecturaActual && parsedData.lecturaAnterior) {
+    parsedData.consumo = parsedData.lecturaActual - parsedData.lecturaAnterior;
+    console.log(`Consumo: ${parsedData.consumo} m³`);
+  }
+
+  return parsedData;
 }
 
 /**
