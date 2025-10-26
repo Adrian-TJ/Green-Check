@@ -46,7 +46,20 @@ export default function GovernanceRegistryPage() {
   };
 
   const handleUpload = async () => {
-    if (!isAuthenticated || !user?.pyme?.id || files.length === 0) return;
+    if (!isAuthenticated || !user?.pyme?.id || files.length === 0) {
+      console.error("Upload validation failed:", {
+        isAuthenticated,
+        hasPyme: !!user?.pyme,
+        pymeId: user?.pyme?.id,
+        filesCount: files.length,
+      });
+      setMessage(
+        "Error: Usuario sin PyME asociada. Por favor contacta al administrador."
+      );
+      return;
+    }
+
+    console.log("Starting upload with pymeId:", user.pyme.id);
 
     setUploading(true);
     setProgress(0);
@@ -57,8 +70,14 @@ export default function GovernanceRegistryPage() {
     for (let i = 0; i < files.length; i++) {
       const formData = new FormData();
       formData.append("file", files[i]);
-      formData.append("uploadId", `gov-${selectedType}-${Date.now()}`);
+      formData.append("pymeId", user.pyme.id);
       formData.append("documentType", selectedType);
+
+      console.log(`Uploading file ${i + 1}/${files.length}:`, {
+        filename: files[i].name,
+        pymeId: user.pyme.id,
+        documentType: selectedType,
+      });
 
       try {
         const response = await fetch(`${API_URL}/api/upload-pdf`, {
@@ -66,10 +85,23 @@ export default function GovernanceRegistryPage() {
           body: formData,
         });
 
-        if (!response.ok) throw new Error("Upload failed");
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error("Upload failed:", errorData);
+          throw new Error(errorData.message || "Upload failed");
+        }
+
+        const result = await response.json();
+        console.log("Upload successful:", result);
+
         setProgress(((i + 1) / files.length) * 100);
       } catch (error) {
-        setMessage(`Error al subir ${files[i].name}`);
+        console.error("Upload error:", error);
+        setMessage(
+          `Error al subir ${files[i].name}: ${
+            error instanceof Error ? error.message : "Error desconocido"
+          }`
+        );
         setUploading(false);
         return;
       }
