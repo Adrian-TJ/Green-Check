@@ -92,6 +92,21 @@ const upload = multer({
   },
 });
 
+// Configure multer for PDF uploads (separate from image uploads)
+const uploadPDF = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 20 * 1024 * 1024, // 20MB limit for PDFs
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept PDF files only
+    if (file.mimetype !== "application/pdf") {
+      return cb(new Error("Only PDF files are allowed!"));
+    }
+    cb(null, true);
+  },
+});
+
 // Health check endpoint
 app.get("/health", (req: Request, res: Response) => {
   res.json({ status: "ok", message: "OCR Server is running" });
@@ -1019,6 +1034,91 @@ app.post("/api/save-social-metrics", async (req: Request, res: Response) => {
     });
   }
 });
+
+/**
+ * Upload PDF file to AWS S3
+ */
+app.post(
+  "/api/upload-pdf",
+  uploadPDF.single("file"),
+  async (req: Request, res: Response) => {
+    try {
+      // Validate S3 is configured
+      if (!s3 || !BUCKET_NAME) {
+        return res.status(500).json({
+          error: "S3 not configured",
+          message:
+            "AWS S3 credentials are not properly configured on the server",
+        });
+      }
+
+      if (!req.file || !req.file.buffer) {
+        return res
+          .status(400)
+          .json({ error: "No PDF file uploaded or file is empty" });
+      }
+
+      console.log(
+        `Processing PDF upload: ${req.file.originalname} (${req.file.size} bytes)`
+      );
+
+      // Optional: Get additional metadata from request body
+      const { pymeId, documentType, description } = req.body;
+
+      // Generate a unique filename to prevent overwrites
+      const timestamp = Date.now();
+      const sanitizedFilename = req.file.originalname.replace(
+        /[^a-zA-Z0-9._-]/g,
+        "_"
+      );
+      const uniqueFilename = `pdfs/${timestamp}_${sanitizedFilename}`;
+
+      // Prepare S3 upload parameters
+      const params = {
+        Bucket: BUCKET_NAME,
+        Key: uniqueFilename,
+        Body: req.file.buffer,
+        ContentType: "application/pdf",
+        Metadata: {
+          originalName: req.file.originalname,
+          uploadedAt: new Date().toISOString(),
+          ...(pymeId && { pymeId }),
+          ...(documentType && { documentType }),
+          ...(description && { description }),
+        },
+      };
+
+      // Upload to S3
+      const command = new PutObjectCommand(params);
+      await s3.send(command);
+
+      console.log(`PDF uploaded successfully to S3: ${uniqueFilename}`);
+
+      res.json({
+        success: true,
+        message: "PDF uploaded successfully",
+        data: {
+          filename: uniqueFilename,
+          originalName: req.file.originalname,
+          fileSize: req.file.size,
+          key: uniqueFilename,
+          uploadedAt: new Date().toISOString(),
+          metadata: {
+            pymeId,
+            documentType,
+            description,
+          },
+        },
+      });
+    } catch (error) {
+      console.error("PDF Upload Error:", error);
+      res.status(500).json({
+        error: "Failed to upload PDF",
+        message: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }
+);
 
 // Start the HTTPS server
 https.createServer(sslOptions, app).listen(PORT, () => {

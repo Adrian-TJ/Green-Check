@@ -26,7 +26,8 @@ const docTypes = [
 
 export default function GovernanceRegistryPage() {
   const { user, isAuthenticated } = useAuth();
-  const [selectedType, setSelectedType] = useState<DocumentType>("codigo_etica");
+  const [selectedType, setSelectedType] =
+    useState<DocumentType>("codigo_etica");
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -50,7 +51,8 @@ export default function GovernanceRegistryPage() {
     setUploading(true);
     setProgress(0);
 
-    const API_URL = process.env.NEXT_PUBLIC_OCR_API_URL || "https://localhost:3002";
+    const API_URL =
+      process.env.NEXT_PUBLIC_OCR_API_URL || "https://localhost:3002";
 
     for (let i = 0; i < files.length; i++) {
       const formData = new FormData();
@@ -59,7 +61,7 @@ export default function GovernanceRegistryPage() {
       formData.append("documentType", selectedType);
 
       try {
-        const response = await fetch(`${API_URL}/api/ocr-upload`, {
+        const response = await fetch(`${API_URL}/api/upload-pdf`, {
           method: "POST",
           body: formData,
         });
@@ -90,7 +92,10 @@ export default function GovernanceRegistryPage() {
         p: 2,
       }}
     >
-      <Paper elevation={8} sx={{ width: "100%", maxWidth: 720, p: 5, borderRadius: 3 }}>
+      <Paper
+        elevation={8}
+        sx={{ width: "100%", maxWidth: 720, p: 5, borderRadius: 3 }}
+      >
         <Box display="flex" justifyContent="center" mb={4}>
           <Image
             src="https://upload.wikimedia.org/wikipedia/commons/5/53/Logo_de_Banorte.svg"
@@ -103,7 +108,12 @@ export default function GovernanceRegistryPage() {
         <Typography variant="h5" color="primary" textAlign="center" mb={1}>
           Registro de Gobernanza
         </Typography>
-        <Typography variant="body2" color="text.secondary" textAlign="center" mb={4}>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          textAlign="center"
+          mb={4}
+        >
           Carga los documentos de gobernanza de tu PyME
         </Typography>
 
@@ -114,7 +124,10 @@ export default function GovernanceRegistryPage() {
         )}
 
         {message && (
-          <Alert severity={message.includes("Error") ? "error" : "success"} sx={{ mb: 3 }}>
+          <Alert
+            severity={message.includes("Error") ? "error" : "success"}
+            sx={{ mb: 3 }}
+          >
             {message}
           </Alert>
         )}
@@ -159,7 +172,9 @@ export default function GovernanceRegistryPage() {
             onChange={(e) => handleFiles(e.target.files)}
             style={{ display: "none" }}
           />
-          <CloudUploadIcon sx={{ fontSize: 48, color: "text.secondary", mb: 2 }} />
+          <CloudUploadIcon
+            sx={{ fontSize: 48, color: "text.secondary", mb: 2 }}
+          />
           <Typography variant="body1" color="text.primary" mb={1}>
             Arrastra archivos PDF aquí o haz clic para seleccionar
           </Typography>
@@ -173,7 +188,12 @@ export default function GovernanceRegistryPage() {
                 display="flex"
                 alignItems="center"
                 justifyContent="space-between"
-                sx={{ p: 2, mb: 1, bgcolor: "background.default", borderRadius: 1 }}
+                sx={{
+                  p: 2,
+                  mb: 1,
+                  bgcolor: "background.default",
+                  borderRadius: 1,
+                }}
               >
                 <Typography variant="body2" noWrap sx={{ flex: 1 }}>
                   {file.name}
@@ -190,19 +210,36 @@ export default function GovernanceRegistryPage() {
           </Box>
         )}
 
-        {uploading && <LinearProgress variant="determinate" value={progress} sx={{ mb: 3 }} />}
+        {uploading && (
+          <LinearProgress
+            variant="determinate"
+            value={progress}
+            sx={{ mb: 3 }}
+          />
+        )}
 
         <Button
           variant="primary"
           fullWidth
           onClick={handleUpload}
-          disabled={!isAuthenticated || !user?.pyme?.id || files.length === 0 || uploading}
+          disabled={
+            !isAuthenticated ||
+            !user?.pyme?.id ||
+            files.length === 0 ||
+            uploading
+          }
           startIcon={<CloudUploadIcon />}
         >
           {uploading ? "Subiendo..." : `Subir ${files.length} Archivo(s)`}
         </Button>
 
-        <Typography variant="caption" display="block" textAlign="center" mt={5} color="text.disabled">
+        <Typography
+          variant="caption"
+          display="block"
+          textAlign="center"
+          mt={5}
+          color="text.disabled"
+        >
           © Banorte. Todos los derechos reservados.
         </Typography>
       </Paper>
