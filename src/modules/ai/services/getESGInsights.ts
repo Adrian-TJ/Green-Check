@@ -105,7 +105,7 @@ Proporciona tu respuesta ÚNICAMENTE en formato JSON válido (sin markdown, sin 
           ],
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 4000, // Increased to accommodate thinking tokens in Gemini 2.5 Flash
+            maxOutputTokens: 10000, // Increased to accommodate thinking tokens in Gemini 2.5 Flash
           },
         }),
       }
