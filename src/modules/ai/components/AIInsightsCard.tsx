@@ -23,7 +23,7 @@ interface AIInsightsCardProps {
 export function AIInsightsCard({ insights, isLoading, error }: AIInsightsCardProps) {
   if (error) {
     return (
-      <Paper sx={{ p: 2, height: "100%" }}>
+      <Paper sx={{ p: 2, minHeight: 328, height: "100%" }}>
         <Box display="flex" alignItems="center" gap={1} mb={2}>
           <AutoAwesomeIcon sx={{ color: "#9C27B0", fontSize: 28 }} />
           <Typography variant="h6" fontWeight={600}>
@@ -39,7 +39,7 @@ export function AIInsightsCard({ insights, isLoading, error }: AIInsightsCardPro
 
   if (isLoading) {
     return (
-      <Paper sx={{ p: 2, height: "100%" }}>
+      <Paper sx={{ p: 2, minHeight: 328, height: "100%" }}>
         <Box display="flex" alignItems="center" gap={1} mb={2}>
           <AutoAwesomeIcon sx={{ color: "#9C27B0", fontSize: 28 }} />
           <Typography variant="h6" fontWeight={600}>
@@ -65,7 +65,7 @@ export function AIInsightsCard({ insights, isLoading, error }: AIInsightsCardPro
 
   if (!insights) {
     return (
-      <Paper sx={{ p: 2, height: "100%" }}>
+      <Paper sx={{ p: 2, minHeight: 328, height: "100%" }}>
         <Box display="flex" alignItems="center" gap={1} mb={2}>
           <AutoAwesomeIcon sx={{ color: "#9C27B0", fontSize: 28 }} />
           <Typography variant="h6" fontWeight={600}>
@@ -80,7 +80,16 @@ export function AIInsightsCard({ insights, isLoading, error }: AIInsightsCardPro
   }
 
   return (
-    <Paper sx={{ p: 2, height: "100%", display: "flex", flexDirection: "column" }}>
+    <Paper
+      sx={{
+        p: 2,
+        minHeight: 328,
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "auto"
+      }}
+    >
       {/* Header */}
       <Box display="flex" alignItems="center" gap={1} mb={2}>
         <AutoAwesomeIcon sx={{ color: "#9C27B0", fontSize: 28 }} />

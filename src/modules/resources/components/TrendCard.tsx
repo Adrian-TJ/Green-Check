@@ -44,8 +44,7 @@ export function TrendCard({
     previousValue !== 0 ? (change / previousValue) * 100 : 0;
 
   // Determine trend direction
-  const trend =
-    change > 0 ? "up" : change < 0 ? "down" : "neutral";
+  const trend = change > 0 ? "up" : change < 0 ? "down" : "neutral";
 
   // Get color based on trend
   const getColor = () => {
@@ -65,7 +64,7 @@ export function TrendCard({
     <Paper
       sx={{
         p: 2,
-        height: 160,
+        height: 250,
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
@@ -75,16 +74,10 @@ export function TrendCard({
       }}
     >
       {/* Trend Icon */}
-      <Box sx={{ color: getColor(), mb: 1 }}>
-        {getTrendIcon()}
-      </Box>
+      <Box sx={{ color: getColor(), mb: 1 }}>{getTrendIcon()}</Box>
 
       {/* Change Value */}
-      <Typography
-        variant="h2"
-        fontWeight={700}
-        sx={{ color: getColor() }}
-      >
+      <Typography variant="h2" fontWeight={700} sx={{ color: getColor() }}>
         {change > 0 ? "+" : ""}
         {change.toFixed(1)}
         <Typography
