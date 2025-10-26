@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
 import type { UserWithPyme } from "@/modules/auth/models/User";
 
 interface UserSessionState {
@@ -29,6 +29,8 @@ export const useUserSession = create<UserSessionState>()(
     }),
     {
       name: "user-session-storage",
+      storage: createJSONStorage(() => localStorage),
+      skipHydration: true,
     }
   )
 );
