@@ -47,15 +47,15 @@ model resources {
 }
 
 model governance {
-  id              String   @id @default(uuid())
-  codigo_etica    Boolean
-  anti_corrupcion Boolean
-  risk_file_url   String
-  date            DateTime @default(now())
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt
-  Pyme            Pyme?    @relation(fields: [pymeId], references: [id])
-  pymeId          String?
+  id                  String   @id @default(uuid())
+  codigo_etica_url    String?
+  anti_corrupcion_url String?
+  risk_file_url       String
+  date                DateTime @default(now())
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+  Pyme                Pyme?    @relation(fields: [pymeId], references: [id])
+  pymeId              String?
 }
 
 model social {
