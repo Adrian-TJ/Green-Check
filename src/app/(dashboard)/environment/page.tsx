@@ -13,15 +13,15 @@ export default function EnvironmentPage() {
   const { resources, isLoading, error } = useResources();
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 8, mb: 4, px: { xs: 2, sm: 3, md: 4 } }}>
-      <Paper sx={{ p: 4, mb: 4 }}>
-        <Box display="flex" alignItems="center" gap={2} mb={3}>
-          <NatureIcon color="primary" sx={{ fontSize: 40 }} />
+    <Container maxWidth="xl" sx={{ mt: 0, mb: 0, px: { xs: 2, sm: 3, md: 4 } }}>
+      <Paper sx={{ p: 1.5, mb: 1 }}>
+        <Box display="flex" alignItems="center" gap={1}>
+          <NatureIcon color="primary" sx={{ fontSize: 28 }} />
           <Box>
-            <Typography variant="h3" color="primary">
+            <Typography variant="h5" color="primary">
               Medio Ambiente
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
               Monitoreo histórico de consumo de recursos
             </Typography>
           </Box>
@@ -34,8 +34,8 @@ export default function EnvironmentPage() {
         </Alert>
       )}
 
-      <Grid container spacing={3}>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+      <Grid container spacing={1}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <ResourceChart
             title="Consumo de Agua"
             data={resources?.agua || []}
@@ -46,7 +46,7 @@ export default function EnvironmentPage() {
           />
         </Grid>
 
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <ResourceChart
             title="Consumo de Electricidad"
             data={resources?.luz || []}
@@ -57,7 +57,7 @@ export default function EnvironmentPage() {
           />
         </Grid>
 
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <ResourceChart
             title="Consumo de Gas"
             data={resources?.gas || []}
@@ -68,7 +68,7 @@ export default function EnvironmentPage() {
           />
         </Grid>
 
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <ResourceChart
             title="Consumo de Transporte"
             data={resources?.transporte || []}
