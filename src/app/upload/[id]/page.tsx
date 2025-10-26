@@ -143,6 +143,7 @@ export default function Upload() {
 
       if (!response.ok) {
         throw new Error(`Upload failed: ${response.statusText}`);
+        console.log("Hola")
       }
 
       const data = await response.json();
