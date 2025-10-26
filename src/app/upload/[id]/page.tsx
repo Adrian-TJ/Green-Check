@@ -2,12 +2,14 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
+import { useAuth } from "@/modules/auth/hooks/useAuth";
 
 export default function Upload() {
   const params = useParams();
   const searchParams = useSearchParams();
   const uploadId = params.id as string;
   const documentType = searchParams.get("type") || "luz";
+  const { user, isAuthenticated } = useAuth();
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -32,7 +34,7 @@ export default function Upload() {
     luz: { label: "Luz" },
     agua: { label: "Agua" },
     gas: { label: "Gas" },
-    gasolina: { label: "Gasolina" },
+    transporte: { label: "transporte" },
   };
 
   // Validate QR code on mount
@@ -155,6 +157,73 @@ export default function Upload() {
       setUploadMessage(
         `File "${selectedFile.name}" processed successfully! Extracted ${data.wordCount} words.`
       );
+
+      // Extract consumption from parsed data based on document type
+      let consumption = 0;
+      if (data.parsedData) {
+        if (
+          data.parsedData.documentType === "luz" &&
+          data.parsedData.consumoActual !== undefined
+        ) {
+          consumption = data.parsedData.consumoActual;
+        } else if (
+          data.parsedData.documentType === "agua" &&
+          data.parsedData.ultimaLectura !== undefined
+        ) {
+          consumption = data.parsedData.ultimaLectura;
+        } else if (
+          data.parsedData.documentType === "gas" &&
+          data.parsedData.lecturaActual !== undefined
+        ) {
+          consumption = data.parsedData.lecturaActual;
+        } else if (
+          data.parsedData.documentType === "transporte" &&
+          data.parsedData.consumo !== undefined
+        ) {
+          consumption = data.parsedData.consumo;
+        }
+      }
+
+      // Save resource to database if user is authenticated and has a Pyme
+      if (isAuthenticated && user?.pyme?.id && consumption > 0) {
+        try {
+          console.log(
+            `Saving resource: ${documentType}, consumption: ${consumption}, pymeId: ${user.pyme.id}`
+          );
+
+          const saveResponse = await fetch(`${API_URL}/api/save-resource`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              pymeId: user.pyme.id,
+              documentType,
+              consumption,
+              parsedData: data.parsedData,
+            }),
+          });
+
+          if (saveResponse.ok) {
+            const saveResult = await saveResponse.json();
+            console.log("Resource saved successfully:", saveResult);
+          } else {
+            const errorData = await saveResponse.json();
+            console.error("Failed to save resource:", errorData);
+          }
+        } catch (saveError) {
+          console.error("Error saving resource to database:", saveError);
+          // Continue even if saving fails - user still gets OCR results
+        }
+      } else {
+        if (!isAuthenticated) {
+          console.log("User not authenticated - skipping resource save");
+        } else if (!user?.pyme?.id) {
+          console.log("User has no Pyme - skipping resource save");
+        } else if (consumption === 0) {
+          console.log("No consumption data extracted - skipping resource save");
+        }
+      }
 
       // Mark submission as complete to show final screen
       setTimeout(() => {

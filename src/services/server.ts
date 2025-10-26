@@ -33,9 +33,11 @@ if (AWS_ACCESS_KEY_ID && AWS_SECRET_KEY && BUCKET_REGION) {
 }
 
 import crypto from "crypto";
+import { PrismaClient } from "@prisma/client";
 
+const prisma = new PrismaClient();
 
-type DocumentType = "luz" | "agua" | "gas" | "gasolina";
+type DocumentType = "luz" | "agua" | "gas" | "transporte";
 
 interface ParsedDocumentData {
   documentType: DocumentType;
@@ -129,10 +131,10 @@ app.post("/api/qr-generate", (req: Request, res: Response) => {
 
     if (
       !documentType ||
-      !["luz", "agua", "gas", "gasolina"].includes(documentType)
+      !["luz", "agua", "gas", "transporte"].includes(documentType)
     ) {
       return res.status(400).json({
-        error: "Valid document type is required (luz, agua, gas, gasolina)",
+        error: "Valid document type is required (luz, agua, gas, transporte)",
       });
     }
 
@@ -268,6 +270,52 @@ async function preprocessImage(buffer: Buffer): Promise<Buffer> {
 }
 
 /**
+ * Parse luz date string to JavaScript Date
+ * Handles formats like: "20 FEB20", "18 DIC19", "01 ENE 2020"
+ */
+function parseLuzDate(dateStr: string): Date | null {
+  try {
+    const monthMap: Record<string, number> = {
+      ENE: 0,
+      FEB: 1,
+      MAR: 2,
+      ABR: 3,
+      MAY: 4,
+      JUN: 5,
+      JUL: 6,
+      AGO: 7,
+      SEP: 8,
+      OCT: 9,
+      NOV: 10,
+      DIC: 11,
+    };
+
+    // Match pattern: day month year (e.g., "20 FEB20" or "20 FEB 2020")
+    const match = dateStr.trim().match(/(\d{1,2})\s+([A-Z]{3})\s?(\d{2,4})/i);
+    if (!match) return null;
+
+    const day = parseInt(match[1], 10);
+    const monthStr = match[2].toUpperCase();
+    let year = parseInt(match[3], 10);
+
+    // Convert 2-digit year to 4-digit (assume 2000s for years < 50, 1900s for >= 50)
+    if (year < 100) {
+      year += year < 50 ? 2000 : 1900;
+    }
+
+    const month = monthMap[monthStr];
+    if (month === undefined) return null;
+
+    const date = new Date(year, month, day);
+    console.log(`Parsed date "${dateStr}" to ${date.toISOString()}`);
+    return date;
+  } catch (error) {
+    console.error(`Failed to parse date "${dateStr}":`, error);
+    return null;
+  }
+}
+
+/**
  * Parse electricity bill (Luz)
  * Extract relevant information from electricity bill text
  */
@@ -287,6 +335,13 @@ function parseLuzDocument(text: string): ParsedDocumentData {
     parsedData.periodoFin = periodoMatch[2].trim();
     parsedData.periodo = `${periodoMatch[1].trim()} - ${periodoMatch[2].trim()}`;
     console.log(`Periodo facturado: ${parsedData.periodo}`);
+
+    // Parse the end date (periodoFin) to use as the billing date
+    const billingDate = parseLuzDate(parsedData.periodoFin);
+    if (billingDate) {
+      parsedData.billingDate = billingDate;
+      console.log(`Billing date extracted: ${billingDate.toISOString()}`);
+    }
   }
 
   // Extract energy consumption (Energía kWh)
@@ -303,6 +358,48 @@ function parseLuzDocument(text: string): ParsedDocumentData {
   }
 
   return parsedData;
+}
+
+/**
+ * Parse Agua date string to JavaScript Date
+ * Handles formats like: "OCT/2023", "ENE/2024"
+ * Returns the last day of the specified month
+ */
+function parseAguaDate(dateStr: string): Date | null {
+  try {
+    const monthMap: Record<string, number> = {
+      ENE: 0,
+      FEB: 1,
+      MAR: 2,
+      ABR: 3,
+      MAY: 4,
+      JUN: 5,
+      JUL: 6,
+      AGO: 7,
+      SEP: 8,
+      OCT: 9,
+      NOV: 10,
+      DIC: 11,
+    };
+
+    // Match pattern: month/year (e.g., "OCT/2023")
+    const match = dateStr.trim().match(/([A-Z]{3})\/(\d{4})/i);
+    if (!match) return null;
+
+    const monthStr = match[1].toUpperCase();
+    const year = parseInt(match[2], 10);
+
+    const month = monthMap[monthStr];
+    if (month === undefined) return null;
+
+    // Get the first day of the month
+    const date = new Date(year, month, 1);
+    console.log(`Parsed agua date "${dateStr}" to ${date.toISOString()}`);
+    return date;
+  } catch (error) {
+    console.error(`Failed to parse agua date "${dateStr}":`, error);
+    return null;
+  }
 }
 
 /**
@@ -323,6 +420,13 @@ function parseAguaDocument(text: string): ParsedDocumentData {
   if (mesFacturadoMatch) {
     parsedData.mesFacturado = mesFacturadoMatch[1].trim();
     console.log(`Mes facturado: ${parsedData.mesFacturado}`);
+
+    // Parse the billing month to use as the billing date
+    const billingDate = parseAguaDate(parsedData.mesFacturado);
+    if (billingDate) {
+      parsedData.billingDate = billingDate;
+      console.log(`Billing date extracted: ${billingDate.toISOString()}`);
+    }
   }
 
   // Extract LECTURA ANTERIOR (previous reading)
@@ -349,6 +453,68 @@ function parseAguaDocument(text: string): ParsedDocumentData {
 }
 
 /**
+ * Parse Gas date string to JavaScript Date
+ * Handles formats like: "14Oct22", "140ct22" (with OCR errors)
+ * OCR often confuses O and 0, so we handle both cases
+ */
+function parseGasDate(dateStr: string): Date | null {
+  try {
+    const monthMap: Record<string, number> = {
+      ENE: 0,
+      FEB: 1,
+      MAR: 2,
+      ABR: 3,
+      MAY: 4,
+      JUN: 5,
+      JUL: 6,
+      AGO: 7,
+      SEP: 8,
+      OCT: 9,
+      NOV: 10,
+      DIC: 11,
+    };
+
+    // Clean up OCR errors: replace 0 with O in potential month names
+    let cleanedDateStr = dateStr.trim();
+    // Replace 0 with O when it appears in the middle of letters (likely a month name)
+    cleanedDateStr = cleanedDateStr.replace(/([a-z])0([a-z])/gi, "$1O$2");
+    cleanedDateStr = cleanedDateStr.replace(/^(\d{1,2})0ct/i, "$1OCT");
+
+    // Match pattern: day + month (3 letters) + year (2 digits)
+    // Examples: "14Oct22", "14OCT22", "01Ene23"
+    const match = cleanedDateStr.match(/(\d{1,2})([a-z]{3})(\d{2})/i);
+    if (!match) {
+      console.log(`Gas date format not recognized: "${dateStr}"`);
+      return null;
+    }
+
+    const day = parseInt(match[1], 10);
+    const monthStr = match[2].toUpperCase();
+    let year = parseInt(match[3], 10);
+
+    // Convert 2-digit year to 4-digit
+    if (year < 100) {
+      year += year < 50 ? 2000 : 1900;
+    }
+
+    const month = monthMap[monthStr];
+    if (month === undefined) {
+      console.log(`Unknown month in gas date: "${monthStr}"`);
+      return null;
+    }
+
+    const date = new Date(year, month, day);
+    console.log(
+      `Parsed gas date "${dateStr}" (cleaned: "${cleanedDateStr}") to ${date.toISOString()}`
+    );
+    return date;
+  } catch (error) {
+    console.error(`Failed to parse gas date "${dateStr}":`, error);
+    return null;
+  }
+}
+
+/**
  * Parse gas bill (Gas)
  * Extract relevant information from gas bill text
  */
@@ -368,6 +534,13 @@ function parseGasDocument(text: string): ParsedDocumentData {
     parsedData.fechaActual = actualMatch[2].trim();
     console.log(`Lectura actual: ${parsedData.lecturaActual}`);
     console.log(`Fecha actual: ${parsedData.fechaActual}`);
+
+    // Parse the gas date to use as the billing date
+    const billingDate = parseGasDate(parsedData.fechaActual);
+    if (billingDate) {
+      parsedData.billingDate = billingDate;
+      console.log(`Billing date extracted: ${billingDate.toISOString()}`);
+    }
   }
 
   // Extract Anterior/Anteror reading
@@ -388,14 +561,14 @@ function parseGasDocument(text: string): ParsedDocumentData {
 }
 
 /**
- * Parse gasoline receipt (Gasolina)
+ * Parse gasoline receipt (transporte)
  * Extract relevant information from gasoline receipt text
  */
-function parseGasolinaDocument(text: string): ParsedDocumentData {
+function parsetransporteDocument(text: string): ParsedDocumentData {
   // TODO: Implement gasoline receipt parsing logic
   // Extract: station name, date, liters, price per liter, total amount, etc.
   return {
-    documentType: "gasolina",
+    documentType: "transporte",
     rawText: text,
     // Add parsed fields here
   };
@@ -417,8 +590,8 @@ function parseDocument(
       return parseAguaDocument(text);
     case "gas":
       return parseGasDocument(text);
-    case "gasolina":
-      return parseGasolinaDocument(text);
+    case "transporte":
+      return parsetransporteDocument(text);
     default:
       return {
         documentType,
@@ -480,8 +653,6 @@ app.post(
         `Processing ${documentType} document: ${req.file.originalname} for upload ID: ${uploadId}`
       );
 
-
-      
       const params = {
         Bucket: BUCKET_NAME,
         Key: req.file.originalname,
@@ -492,16 +663,15 @@ app.post(
       let command: PutObjectCommand | undefined = undefined;
       if (req.file && req.file.buffer) {
         command = new PutObjectCommand(params);
-        await s3?.send(command)
+        await s3?.send(command);
         console.log("File uploaded successfully");
       }
 
-      console.log(req.file.buffer)
+      console.log(req.file.buffer);
 
       // Mark QR code as used immediately to prevent concurrent uploads
       qrEntry.used = true;
       qrEntry.usedAt = now;
-
 
       // Preprocess the image for better OCR accuracy
       console.log("Preprocessing image for better OCR accuracy...");
@@ -573,6 +743,101 @@ app.post(
     }
   }
 );
+
+/**
+ * Save resource consumption data to database
+ */
+app.post("/api/save-resource", async (req: Request, res: Response) => {
+  try {
+    const { pymeId, documentType, consumption, parsedData } = req.body;
+
+    // Validate required fields
+    if (!pymeId || !documentType || consumption === undefined) {
+      return res.status(400).json({
+        error: "Missing required fields",
+        message: "pymeId, documentType, and consumption are required",
+      });
+    }
+
+    // Validate Pyme exists
+    const pyme = await prisma.pyme.findUnique({
+      where: { id: pymeId },
+    });
+
+    if (!pyme) {
+      return res.status(404).json({
+        error: "Pyme not found",
+        message: "The specified Pyme does not exist",
+      });
+    }
+
+    // Map document types to resource types
+    const documentTypeToResourceType: Record<string, string> = {
+      luz: "LUZ",
+      agua: "AGUA",
+      gas: "GAS",
+      transporte: "TRANSPORTE",
+    };
+
+    const resourceType = documentTypeToResourceType[documentType];
+
+    if (!resourceType) {
+      return res.status(400).json({
+        error: "Invalid document type",
+        message: "Document type must be one of: luz, agua, gas, transporte",
+      });
+    }
+
+    // Determine the date to use
+    let resourceDate = new Date(); // Default to now
+
+    // If parsedData contains a billingDate, use that instead
+    if (parsedData && parsedData.billingDate) {
+      const billingDate = new Date(parsedData.billingDate);
+      if (!isNaN(billingDate.getTime())) {
+        resourceDate = billingDate;
+        console.log(
+          `Using billing date from parsed data: ${resourceDate.toISOString()}`
+        );
+      }
+    }
+
+    // Create resource name with type and date
+    const formattedDate = `${
+      resourceDate.getMonth() + 1
+    }/${resourceDate.getDate()}/${resourceDate.getFullYear()}`;
+    const resourceName = `Consumo de ${resourceType.toLowerCase()}`;
+
+    // Create resource in database
+    const resource = await prisma.resources.create({
+      data: {
+        name: resourceName,
+        type: resourceType as any, // Cast to enum type
+        consumption: parseFloat(consumption.toString()),
+        pymeId,
+        date: resourceDate, // Use the billing date from parsed data or current date
+      },
+    });
+
+    console.log(
+      `Resource saved: ${
+        resource.id
+      } - ${resourceName} (${consumption}) on ${resourceDate.toISOString()}`
+    );
+
+    res.json({
+      success: true,
+      message: "Resource created successfully",
+      data: resource,
+    });
+  } catch (error) {
+    console.error("Save Resource Error:", error);
+    res.status(500).json({
+      error: "Failed to save resource",
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});
 
 // Start the HTTPS server
 https.createServer(sslOptions, app).listen(PORT, () => {
