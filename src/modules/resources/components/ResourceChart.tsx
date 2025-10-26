@@ -12,6 +12,7 @@ interface ResourceChartProps {
   unit: string;
   icon?: React.ReactNode;
   isLoading?: boolean;
+  height?: number;
 }
 
 function AreaGradient({ color, id }: { color: string; id: string }) {
@@ -42,13 +43,14 @@ export function ResourceChart({
   unit,
   icon,
   isLoading,
+  height = 296,
 }: ResourceChartProps) {
   if (isLoading) {
     return (
       <Paper
         sx={{
           p: 1.5,
-          height: 296,
+          height,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -64,7 +66,7 @@ export function ResourceChart({
       <Paper
         sx={{
           p: 1.5,
-          height: 296,
+          height,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -98,7 +100,7 @@ export function ResourceChart({
 
   return (
     <Paper
-      sx={{ p: 1.5, height: 296, display: "flex", flexDirection: "column" }}
+      sx={{ p: 1.5, height, display: "flex", flexDirection: "column" }}
     >
       {/* First Row - Title with Icon */}
       <Box display="flex" alignItems="center" gap={0.5} mb={0.5}>
@@ -136,8 +138,6 @@ export function ResourceChart({
           slotProps={{
             legend: {
               position: { vertical: "bottom", horizontal: "center" },
-              direction: "row",
-              padding: 0,
             },
           }}
           sx={{

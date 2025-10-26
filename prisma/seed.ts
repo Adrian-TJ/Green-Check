@@ -16,29 +16,34 @@ async function main() {
         create: {
           name: "EcoPyme Sostenible",
           description:
-            "PyME mexicana dedicada a la producción artesanal responsable, con enfoque en eficiencia de recursos y equidad laboral.",
+            "PyME mexicana dedicada a la producción artesanal responsable, con enfoque en eficiencia de recursos, transparencia y equidad laboral.",
           address: "Av. Reforma 120, CDMX, México",
           phone: "+52 55 1234 5678",
           email: "contacto@ecopyme.mx",
 
-          // 🔹 RECURSOS AMBIENTALES (bimestral, tendencias variadas realistas)
+          // 🔹 RECURSOS AMBIENTALES (bimestral)
           resources: {
             createMany: {
               data: (() => {
                 const data = [];
                 const start = new Date("2024-01-01");
-                const months = 12; // 2 años = 12 bimestres
-                let agua = 1200; // Agua: -5% por periodo (buena conservación)
-                let luz = 850;   // Luz: -2.5% por periodo (eficiencia moderada)
-                let gas = 620;   // Gas: variable (algunos incrementos, otros decrementos)
-                let transporte = 450; // Transporte: variable (eficiencia en logística)
+                const periods = 12; // 2 años (bimestral)
 
-                // Factores de variación para gas (más realista)
-                const gasFactors = [0.97, 0.95, 0.98, 1.02, 0.96, 1.01, 0.99, 0.97, 1.03, 0.98, 0.96, 0.99];
-                // Factores de variación para transporte
-                const transporteFactors = [0.98, 0.96, 0.94, 0.95, 0.93, 0.92, 0.94, 0.91, 0.90, 0.89, 0.88, 0.87];
+                let agua = 1300; // m³
+                let luz = 850; // kWh
+                let gas = 600; // m³
+                let transporte = 500; // L gasolina
 
-                for (let i = 0; i < months; i++) {
+                const gasFactors = [
+                  0.97, 0.95, 0.98, 1.02, 0.96, 1.0, 0.99, 0.97, 1.03, 0.98,
+                  0.96, 0.99,
+                ];
+                const transporteFactors = [
+                  0.99, 0.97, 0.95, 0.94, 0.93, 0.91, 0.9, 0.88, 0.87, 0.85,
+                  0.84, 0.83,
+                ];
+
+                for (let i = 0; i < periods; i++) {
                   const date = new Date(start);
                   date.setMonth(i * 2);
 
@@ -46,94 +51,96 @@ async function main() {
                     {
                       name: "Consumo de agua",
                       type: resourceType.AGUA,
-                      consumption: parseFloat(agua.toFixed(2)),
+                      consumption: agua,
                       date,
                     },
                     {
                       name: "Consumo de luz",
                       type: resourceType.LUZ,
-                      consumption: parseFloat(luz.toFixed(2)),
+                      consumption: luz,
                       date,
                     },
                     {
                       name: "Consumo de gas",
                       type: resourceType.GAS,
-                      consumption: parseFloat(gas.toFixed(2)),
+                      consumption: gas,
                       date,
                     },
                     {
                       name: "Consumo de transporte",
                       type: resourceType.TRANSPORTE,
-                      consumption: parseFloat(transporte.toFixed(2)),
+                      consumption: transporte,
                       date,
                     }
                   );
 
-                  agua *= 0.95; // reduce 5% por periodo
-                  luz *= 0.975; // reduce 2.5% por periodo
-                  gas *= gasFactors[i]; // variación realista
-                  transporte *= transporteFactors[i]; // mejora gradual en eficiencia
+                  agua *= 0.97; // Reducción 3% por ahorro
+                  luz *= 0.98; // Reducción 2%
+                  gas *= gasFactors[i];
+                  transporte *= transporteFactors[i];
+                }
+
+                return data.map((r) => ({
+                  ...r,
+                  consumption: parseFloat(r.consumption.toFixed(2)),
+                }));
+              })(),
+            },
+          },
+
+          // 🔹 GOBERNANZA
+          governance: {
+            createMany: {
+              data: (() => {
+                const data = [];
+                const start = new Date("2024-01-01");
+                const periods = 12;
+                let hasEthics = false;
+                let hasAntiCorruption = false;
+
+                for (let i = 0; i < periods; i++) {
+                  const date = new Date(start);
+                  date.setMonth(i * 2);
+
+                  if (i >= 2) hasEthics = true;
+                  if (i >= 4) hasAntiCorruption = true;
+
+                  data.push({
+                    codigo_etica_url: hasEthics
+                      ? `https://ecopyme.mx/docs/codigo_etica_v${i - 1}.pdf`
+                      : null,
+                    anti_corrupcion_url: hasAntiCorruption
+                      ? `https://ecopyme.mx/docs/anti_corrupcion_v${i - 3}.pdf`
+                      : null,
+                    risk_file_url: `https://ecopyme.mx/docs/riesgos_v${
+                      i + 1
+                    }.pdf`,
+                    date,
+                  });
                 }
                 return data;
               })(),
             },
           },
 
-          // 🔹 GOBERNANZA (implementación gradual de prácticas)
-          governance: {
-            createMany: {
-              data: [
-                {
-                  codigo_etica: false,
-                  anti_corrupcion: false,
-                  risk_file_url: "https://ecopyme.mx/docs/riesgos_v1.pdf",
-                  date: new Date("2024-01-01"),
-                },
-                {
-                  codigo_etica: true,
-                  anti_corrupcion: false,
-                  risk_file_url: "https://ecopyme.mx/docs/riesgos_v2.pdf",
-                  date: new Date("2024-05-01"),
-                },
-                {
-                  codigo_etica: true,
-                  anti_corrupcion: true,
-                  risk_file_url: "https://ecopyme.mx/docs/riesgos_v3.pdf",
-                  date: new Date("2024-09-01"),
-                },
-                {
-                  codigo_etica: true,
-                  anti_corrupcion: true,
-                  risk_file_url: "https://ecopyme.mx/docs/riesgos_v4.pdf",
-                  date: new Date("2025-01-01"),
-                },
-                {
-                  codigo_etica: true,
-                  anti_corrupcion: true,
-                  risk_file_url: "https://ecopyme.mx/docs/riesgos_v5.pdf",
-                  date: new Date("2025-07-01"),
-                },
-              ],
-            },
-          },
-
-          // 🔹 SOCIAL (tendencias positivas en equidad, capacitación y satisfacción)
+          // 🔹 SOCIAL
           social: {
             createMany: {
               data: (() => {
                 const data = [];
                 const start = new Date("2024-01-01");
-                const months = 12;
-                const men = 15;
-                let women = 5;
-                const menLead = 5;
-                let womenLead = 1;
-                let training = 20;
-                let satisfaction = 0.72;
-                let insured = 10;
-                const uninsured = 5;
+                const periods = 12;
 
-                for (let i = 0; i < months; i++) {
+                const men = 15;
+                let women = 6;
+                const menLead = 4;
+                let womenLead = 1;
+                let training = 22;
+                let satisfaction = 0.74;
+                let insured = 12;
+                const uninsured = 4;
+
+                for (let i = 0; i < periods; i++) {
                   const date = new Date(start);
                   date.setMonth(i * 2);
 
@@ -144,17 +151,17 @@ async function main() {
                     women_in_leadership: womenLead,
                     training_hours: Math.round(training),
                     satisfaction_rate: parseFloat(satisfaction.toFixed(2)),
-                    community_programs: i >= 2, // a partir de mayo 2024
+                    community_programs: i >= 2,
                     insured_employees: insured,
                     uninsured_employees: uninsured,
                     date,
                   });
 
-                  // 📈 tendencias
-                  if (i % 3 === 0 && i > 0) women += 1; // más mujeres contratadas cada 6 meses
-                  if (i % 4 === 0 && i > 0) womenLead += 1; // aumento en liderazgo femenino
-                  training *= 1.05; // +5 % cada bimestre
-                  satisfaction = Math.min(satisfaction + 0.015, 0.92); // mejora gradual
+                  // 📈 Tendencias
+                  if (i % 3 === 0 && i > 0) women += 1;
+                  if (i % 4 === 0 && i > 0) womenLead += 1;
+                  training *= 1.04;
+                  satisfaction = Math.min(satisfaction + 0.012, 0.92);
                   insured += 1;
                 }
 
@@ -171,7 +178,7 @@ async function main() {
   });
 
   console.log(
-    "✅ PyME con evolución bimestral 2024–2025 creada:",
+    "✅ PyME mexicana con evolución bimestral (2024–2025) creada:",
     user?.pyme?.name
   );
 }
