@@ -10,6 +10,14 @@ import sharp from "sharp";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import dotenv from "dotenv";
 
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GetObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
+import { Readable } from "stream";
+const pdfParse = require("pdf-parse");
+
+
+
+
 dotenv.config();
 
 const BUCKET_NAME = process.env.BUCKET_NAME;
@@ -846,5 +854,302 @@ https.createServer(sslOptions, app).listen(PORT, () => {
   console.log(`Processing images in memory (no disk storage)`);
   console.log(`Using SSL certificates: localhost+3.pem`);
 });
+
+// Initialize Gemini AI (add after your S3 client initialization)
+const genAI = process.env.GEMINI_API_KEY
+  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+  : null;
+
+if (!genAI) {
+  console.warn("Gemini AI not initialized: GEMINI_API_KEY not set");
+}
+
+// Cache for document content to avoid re-downloading
+const documentCache = new Map<string, { text: string; timestamp: number }>();
+const CACHE_DURATION = 60 * 60 * 1000; // 1 hour
+
+/**
+ * Helper: Convert stream to buffer
+ */
+async function streamToBuffer(stream: Readable): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  return new Promise((resolve, reject) => {
+    stream.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    stream.on("error", reject);
+    stream.on("end", () => resolve(Buffer.concat(chunks)));
+  });
+}
+
+/**
+ * Helper: Get latest document from S3 for a given type
+ */
+async function getLatestDocumentFromS3(
+  pymeId: string,
+  documentType: string
+): Promise<{ key: string; text: string; fileName: string } | null> {
+  if (!s3 || !BUCKET_NAME) {
+    console.error("S3 not configured");
+    return null;
+  }
+
+  try {
+    // Check cache first
+    const cacheKey = `${pymeId}-${documentType}`;
+    const cached = documentCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      console.log(`Using cached document for ${cacheKey}`);
+      return { key: cacheKey, text: cached.text, fileName: "cached" };
+    }
+
+    // List objects in the governance folder
+    const prefix = `governance/${pymeId}/${documentType}/`;
+
+    const listCommand = new ListObjectsV2Command({
+      Bucket: BUCKET_NAME,
+      Prefix: prefix,
+    });
+
+    const listResponse = await s3.send(listCommand);
+
+    if (!listResponse.Contents || listResponse.Contents.length === 0) {
+      console.log(`No documents found for ${pymeId}/${documentType}`);
+      return null;
+    }
+
+    // Get the most recent file (sorted by LastModified)
+    const sortedFiles = listResponse.Contents.sort(
+      (a, b) =>
+        (b.LastModified?.getTime() || 0) - (a.LastModified?.getTime() || 0)
+    );
+    const latestFile = sortedFiles[0];
+
+    if (!latestFile.Key) return null;
+
+    console.log(`Downloading document: ${latestFile.Key}`);
+
+    // Download the file
+    const getCommand = new GetObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: latestFile.Key,
+    });
+
+    const response = await s3.send(getCommand);
+
+    if (!response.Body) {
+      console.error("Empty response body from S3");
+      return null;
+    }
+
+    // Convert stream to buffer
+    const buffer = await streamToBuffer(response.Body as Readable);
+
+    // Parse PDF
+    console.log("Parsing PDF...");
+    const pdfData = await pdfParse(buffer);
+    const text = pdfData.text;
+
+    console.log(`Extracted ${text.length} characters from PDF`);
+
+    // Cache the document
+    documentCache.set(cacheKey, { text, timestamp: Date.now() });
+
+    return {
+      key: latestFile.Key,
+      text,
+      fileName: latestFile.Key.split("/").pop() || "document.pdf",
+    };
+  } catch (error) {
+    console.error("Error getting document from S3:", error);
+    return null;
+  }
+}
+
+/**
+ * Endpoint: Check if governance document exists
+ * GET /api/governance-document?documentType=codigo_etica&pymeId=xxx
+ */
+app.get("/api/governance-document", async (req: Request, res: Response) => {
+  try {
+    const { documentType, pymeId } = req.query;
+
+    if (!documentType || !pymeId) {
+      return res.status(400).json({
+        error: "Missing required parameters",
+        message: "documentType and pymeId are required",
+      });
+    }
+
+    const validTypes = ["codigo_etica", "anti_corrupcion", "gestion_riesgos"];
+    if (!validTypes.includes(documentType as string)) {
+      return res.status(400).json({
+        error: "Invalid document type",
+      });
+    }
+
+    if (!s3 || !BUCKET_NAME) {
+      return res.json({
+        exists: false,
+        message: "S3 not configured",
+      });
+    }
+
+    // Check if document exists in S3
+    const prefix = `governance/${pymeId}/${documentType}/`;
+
+    const listCommand = new ListObjectsV2Command({
+      Bucket: BUCKET_NAME,
+      Prefix: prefix,
+    });
+
+    const listResponse = await s3.send(listCommand);
+
+    if (!listResponse.Contents || listResponse.Contents.length === 0) {
+      return res.json({
+        exists: false,
+      });
+    }
+
+    // Get most recent file
+    const sortedFiles = listResponse.Contents.sort(
+      (a, b) =>
+        (b.LastModified?.getTime() || 0) - (a.LastModified?.getTime() || 0)
+    );
+    const latestFile = sortedFiles[0];
+
+    res.json({
+      exists: true,
+      fileName: latestFile.Key?.split("/").pop() || "document.pdf",
+      uploadDate: latestFile.LastModified?.toISOString(),
+    });
+  } catch (error) {
+    console.error("Error checking document:", error);
+    res.status(500).json({
+      error: "Failed to check document",
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});
+
+/**
+ * Endpoint: Chat with governance document using Gemini
+ * POST /api/governance-chat
+ */
+app.post("/api/governance-chat", async (req: Request, res: Response) => {
+  try {
+    const { message, documentType, pymeId, conversationHistory, isInitial } =
+      req.body;
+
+    if (!message || !documentType || !pymeId) {
+      return res.status(400).json({
+        error: "Missing required fields",
+        message: "message, documentType, and pymeId are required",
+      });
+    }
+
+    if (!genAI) {
+      return res.status(503).json({
+        error: "AI service not configured",
+        message: "GEMINI_API_KEY is not set",
+      });
+    }
+
+    // Get document from S3
+    const document = await getLatestDocumentFromS3(pymeId, documentType);
+
+    if (!document) {
+      return res.status(404).json({
+        error: "Document not found",
+        message: "No document found for this type",
+      });
+    }
+
+    console.log(`Analyzing ${documentType} document for pymeId ${pymeId}`);
+
+    // Prepare context for Gemini
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    let prompt = "";
+
+    if (isInitial) {
+      // Initial analysis prompt
+      prompt = `Eres un experto en gobernanza corporativa y cumplimiento normativo en México. 
+
+Analiza el siguiente documento de "${documentType.replace("_", " ")}" y proporciona:
+
+1. Un resumen ejecutivo breve (2-3 párrafos)
+2. Los 3-5 puntos más importantes del documento
+3. Una evaluación inicial de fortalezas
+4. Áreas de oportunidad o mejora
+
+Sé específico, profesional y enfócate en lo práctico.
+
+DOCUMENTO:
+${document.text}
+
+Responde en español de forma clara y estructurada.`;
+    } else {
+      // Build conversation context
+      let conversationContext = "";
+      if (conversationHistory && conversationHistory.length > 0) {
+        conversationContext = conversationHistory
+          .map((msg: any) => `${msg.role === "user" ? "Usuario" : "Asistente"}: ${msg.content}`)
+          .join("\n\n");
+      }
+
+      prompt = `Eres un experto en gobernanza corporativa y cumplimiento normativo en México.
+
+Tienes acceso al siguiente documento de "${documentType.replace("_", " ")}":
+
+DOCUMENTO:
+${document.text}
+
+${conversationContext ? `CONVERSACIÓN PREVIA:\n${conversationContext}\n\n` : ""}
+
+NUEVA PREGUNTA DEL USUARIO:
+${message}
+
+Proporciona una respuesta específica, basada en el documento y en el contexto de México. Sé profesional, claro y práctico. Si la pregunta no está relacionada con el documento, indícalo amablemente y redirige la conversación.
+
+Responde en español.`;
+    }
+
+    // Generate response
+    console.log("Generating AI response...");
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    const text = response.text();
+
+    console.log("AI response generated successfully");
+
+    res.json({
+      success: true,
+      response: text,
+      documentType,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error in governance chat:", error);
+    res.status(500).json({
+      error: "Failed to process chat",
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});
+
+// Add this to clean up cache periodically
+setInterval(() => {
+  const now = Date.now();
+  let cleanedCount = 0;
+  documentCache.forEach((value, key) => {
+    if (now - value.timestamp > CACHE_DURATION) {
+      documentCache.delete(key);
+      cleanedCount++;
+    }
+  });
+  if (cleanedCount > 0) {
+    console.log(`Cleaned up ${cleanedCount} cached documents`);
+  }
+}, 30 * 60 * 1000); // Clean every 30 minutes
+
 
 export default app;

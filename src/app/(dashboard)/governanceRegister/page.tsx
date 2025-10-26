@@ -24,24 +24,33 @@ const docTypes = [
   { value: "gestion_riesgos", label: "Gestión de Riesgos" },
 ] as const;
 
-export default function GovernanceRegistryPage() {
+export default function GovernanceRegistryPage(): React.JSX.Element {
   const { user, isAuthenticated } = useAuth();
   const [selectedType, setSelectedType] = useState<DocumentType>("codigo_etica");
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFiles = (newFiles: FileList | null) => {
     if (!newFiles) return;
-    const pdfFiles = Array.from(newFiles).filter((f) => f.type.includes("pdf"));
-    if (pdfFiles.length === 0) {
-      setMessage("Solo se permiten archivos PDF");
+
+    const imageFiles = Array.from(newFiles).filter((f) => f.type.startsWith("image/"));
+    if (imageFiles.length === 0) {
+      setMessage({ type: "error", text: "Solo se permiten imágenes (JPG/PNG)." });
       return;
     }
-    setFiles((prev) => [...prev, ...pdfFiles]);
-    setMessage("");
+
+    // (Opcional) limitar tamaño a 10 MB por imagen
+    const tooBig = imageFiles.find((f) => f.size > 10 * 1024 * 1024);
+    if (tooBig) {
+      setMessage({ type: "error", text: `La imagen "${tooBig.name}" supera 10 MB.` });
+      return;
+    }
+
+    setFiles((prev) => [...prev, ...imageFiles]);
+    setMessage(null);
   };
 
   const handleUpload = async () => {
@@ -49,34 +58,53 @@ export default function GovernanceRegistryPage() {
 
     setUploading(true);
     setProgress(0);
+    setMessage(null);
 
-    const API_URL = process.env.NEXT_PUBLIC_OCR_API_URL || "https://localhost:3002";
-
+    // Usamos el proxy en Next: /api/ocr-upload (no llamar directo por IP/puerto)
     for (let i = 0; i < files.length; i++) {
       const formData = new FormData();
       formData.append("file", files[i]);
-      formData.append("uploadId", `gov-${selectedType}-${Date.now()}`);
+      // Si mantienes QR en el backend, reemplaza esto por el uploadId real
+      formData.append("uploadId", `gov-${selectedType}-${Date.now()}-${i}`);
       formData.append("documentType", selectedType);
 
       try {
-        const response = await fetch(`${API_URL}/api/ocr-upload`, {
+        const response = await fetch(`/api/ocr-upload`, {
           method: "POST",
           body: formData,
         });
 
-        if (!response.ok) throw new Error("Upload failed");
-        setProgress(((i + 1) / files.length) * 100);
-      } catch (error) {
-        setMessage(`Error al subir ${files[i].name}`);
+        if (!response.ok) {
+          // Intenta leer el error legible del proxy/backend
+          let detail = "";
+          try {
+            const errJson = await response.json();
+            detail = errJson?.error || errJson?.message || "";
+          } catch {
+            // ignore
+          }
+          throw new Error(detail || "Upload failed");
+        }
+
+        setProgress(Math.round(((i + 1) / files.length) * 100));
+      } catch (error: any) {
+        setMessage({
+          type: "error",
+          text: `Error al subir "${files[i].name}"${error?.message ? `: ${error.message}` : ""}`,
+        });
         setUploading(false);
         return;
       }
     }
 
-    setMessage("Archivos subidos exitosamente");
+    setMessage({ type: "success", text: "Imágenes subidas exitosamente" });
     setUploading(false);
     setFiles([]);
     setProgress(0);
+  };
+
+  const removeFileAt = (idx: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== idx));
   };
 
   return (
@@ -104,7 +132,7 @@ export default function GovernanceRegistryPage() {
           Registro de Gobernanza
         </Typography>
         <Typography variant="body2" color="text.secondary" textAlign="center" mb={4}>
-          Carga los documentos de gobernanza de tu PyME
+          Carga las imágenes de los documentos de gobernanza de tu PyME (JPG/PNG)
         </Typography>
 
         {!isAuthenticated && (
@@ -114,22 +142,27 @@ export default function GovernanceRegistryPage() {
         )}
 
         {message && (
-          <Alert severity={message.includes("Error") ? "error" : "success"} sx={{ mb: 3 }}>
-            {message}
+          <Alert severity={message.type} sx={{ mb: 3 }}>
+            {message.text}
           </Alert>
         )}
 
         <Stack direction="row" spacing={2} mb={3}>
-          {docTypes.map((type) => (
-            <Button
-              key={type.value}
-              variant={selectedType === type.value ? "primary" : "secondary"}
-              onClick={() => setSelectedType(type.value)}
-              fullWidth
-            >
-              {type.label}
-            </Button>
-          ))}
+          {docTypes.map((type) => {
+            const active = selectedType === type.value;
+            return (
+              <Button
+                key={type.value}
+                variant={active ? "contained" : "outlined"}
+                color={active ? "primary" : "inherit"}
+                onClick={() => setSelectedType(type.value)}
+                fullWidth
+                disabled={uploading}
+              >
+                {type.label}
+              </Button>
+            );
+          })}
         </Stack>
 
         <Box
@@ -137,6 +170,7 @@ export default function GovernanceRegistryPage() {
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
             e.preventDefault();
+            if (uploading) return;
             handleFiles(e.dataTransfer.files);
           }}
           sx={{
@@ -146,7 +180,7 @@ export default function GovernanceRegistryPage() {
             borderRadius: 2,
             p: 4,
             textAlign: "center",
-            cursor: "pointer",
+            cursor: uploading ? "not-allowed" : "pointer",
             mb: 3,
             "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" },
           }}
@@ -155,13 +189,17 @@ export default function GovernanceRegistryPage() {
             ref={fileInputRef}
             type="file"
             multiple
-            accept="application/pdf"
+            accept="image/*"
             onChange={(e) => handleFiles(e.target.files)}
             style={{ display: "none" }}
+            disabled={uploading}
           />
           <CloudUploadIcon sx={{ fontSize: 48, color: "text.secondary", mb: 2 }} />
           <Typography variant="body1" color="text.primary" mb={1}>
-            Arrastra archivos PDF aquí o haz clic para seleccionar
+            Arrastra imágenes (JPG/PNG) aquí o haz clic para seleccionar
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Tamaño máximo recomendado: 10&nbsp;MB por imagen
           </Typography>
         </Box>
 
@@ -169,19 +207,20 @@ export default function GovernanceRegistryPage() {
           <Box sx={{ mb: 3 }}>
             {files.map((file, i) => (
               <Box
-                key={i}
+                key={`${file.name}-${i}`}
                 display="flex"
                 alignItems="center"
                 justifyContent="space-between"
                 sx={{ p: 2, mb: 1, bgcolor: "background.default", borderRadius: 1 }}
               >
-                <Typography variant="body2" noWrap sx={{ flex: 1 }}>
+                <Typography variant="body2" noWrap sx={{ flex: 1, mr: 1 }}>
                   {file.name}
                 </Typography>
                 <IconButton
                   size="small"
-                  onClick={() => setFiles(files.filter((_, idx) => idx !== i))}
+                  onClick={() => removeFileAt(i)}
                   disabled={uploading}
+                  aria-label={`Eliminar ${file.name}`}
                 >
                   <DeleteIcon fontSize="small" />
                 </IconButton>
@@ -190,16 +229,24 @@ export default function GovernanceRegistryPage() {
           </Box>
         )}
 
-        {uploading && <LinearProgress variant="determinate" value={progress} sx={{ mb: 3 }} />}
+        {uploading && (
+          <LinearProgress
+            variant="determinate"
+            value={progress}
+            sx={{ mb: 3 }}
+            aria-label={`Progreso de subida: ${progress}%`}
+          />
+        )}
 
         <Button
-          variant="primary"
+          variant="contained"
+          color="primary"
           fullWidth
           onClick={handleUpload}
           disabled={!isAuthenticated || !user?.pyme?.id || files.length === 0 || uploading}
           startIcon={<CloudUploadIcon />}
         >
-          {uploading ? "Subiendo..." : `Subir ${files.length} Archivo(s)`}
+          {uploading ? "Subiendo..." : `Subir ${files.length} Imagen(es)`}
         </Button>
 
         <Typography variant="caption" display="block" textAlign="center" mt={5} color="text.disabled">

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Paper,
@@ -20,6 +20,7 @@ import { useRouter } from "next/navigation";
 export default function LoginPage(): React.JSX.Element {
   const router = useRouter();
   const { login, loginSchema, isAuthenticated, user } = useAuth();
+  const [mounted, setMounted] = useState(false);
   const [formData, setFormData] = useState<LoginFormData>({
     email: "",
     password: "",
@@ -28,6 +29,10 @@ export default function LoginPage(): React.JSX.Element {
     Partial<Record<keyof LoginFormData, string>>
   >({});
   const [response, setResponse] = useState<GeneralResponse<UserWithPyme> | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleChange = (field: keyof LoginFormData) => (
     e: React.ChangeEvent<HTMLInputElement>
@@ -77,6 +82,11 @@ export default function LoginPage(): React.JSX.Element {
       },
     });
   };
+
+  // Prevent hydration mismatch by not rendering until mounted
+  if (!mounted) {
+  return <></>;  // Fragment vacío en lugar de null
+}
 
   // If already authenticated, show welcome message
   if (isAuthenticated && user) {
