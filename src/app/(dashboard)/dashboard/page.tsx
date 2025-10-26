@@ -53,30 +53,6 @@ export default function DashboardPage() {
       consumption: score.esgScore, // Average: (E + S + G) / 3
     })) || [];
 
-  const environmentChartData =
-    environmentScores?.map((score) => ({
-      date: score.date,
-      consumption: score.score,
-    })) || [];
-
-  const socialChartData =
-    socialScores?.map((score) => ({
-      date: score.date,
-      consumption: score.score,
-    })) || [];
-
-  /**
-   * METRIC CARD DATA (Trend Calculation)
-   * Extract last 2 values to calculate period-over-period trends
-   * ResourceMetricCard uses these to show:
-   * - Current value
-   * - Percentage change vs previous period
-   * - Trend indicator (up/down/flat arrow)
-   */
-  const esgMetricData = esgChartData.slice(-2);
-  const environmentMetricData = environmentChartData.slice(-2);
-  const socialMetricData = socialChartData.slice(-2);
-
   return (
     <Container maxWidth="xl" sx={{ mt: 0, mb: 0, px: { xs: 2, sm: 3, md: 4 } }}>
       <Paper sx={{ p: 1.5, mb: 1 }}>

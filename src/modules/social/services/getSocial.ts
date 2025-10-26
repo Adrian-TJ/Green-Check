@@ -93,9 +93,11 @@ export async function getSocialService(
         (wellbeingScore * weights.wellbeing) +
         (protectionScore * weights.protection);
 
+      const finalScore = Math.round(Math.min(Math.max(weightedScore, 0), 100));
+
       return {
         date: entry.date.toISOString().split("T")[0],
-        score: Math.round(Math.min(Math.max(weightedScore, 0), 100)), // 0-100
+        score: finalScore, // 0-100
       };
     });
 

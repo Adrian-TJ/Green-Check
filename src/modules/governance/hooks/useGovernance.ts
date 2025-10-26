@@ -20,7 +20,7 @@ export function useGovernance() {
   });
 
   return {
-    governanceScores: data?.status === "success" ? data.data : null,
+    governanceScores: data?.status === "success" && data.data ? data.data : [],
     isLoading,
     error,
     refetch,

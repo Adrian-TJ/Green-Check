@@ -18,7 +18,7 @@ export function useSocial() {
   });
 
   return {
-    social: data?.status === "success" ? data.data?.social : [] ,
+    socialScores: data?.status === "success" && data.data ? data.data : [],
     isLoading,
     error,
     refetch,
