@@ -266,17 +266,18 @@ export default function SocialPage() {
           <Paper
             sx={{ p: 2, height: 300, display: "flex", flexDirection: "column" }}
           >
+            <Typography variant="h6" fontWeight={600} mb={1}>
+              Horas de Capacitación
+            </Typography>
             <BarChart
               xAxis={[
                 {
                   data: dates,
                   scaleType: "band",
-                  label: "Períodos",
                 },
               ]}
               series={trainingSeries.map((series) => ({
                 data: series.data,
-                label: series.label,
                 color: series.color,
               }))}
               height={250}

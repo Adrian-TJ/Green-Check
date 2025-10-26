@@ -1,4 +1,4 @@
-import { Paper, Typography, CircularProgress} from "@mui/material";
+import { Paper, Typography, CircularProgress } from "@mui/material";
 import { LineChart, BarChart, PieChart } from "@mui/x-charts";
 interface Series {
   label: string;
@@ -49,16 +49,14 @@ export function SocialChart({
         }}
       >
         {" "}
-        <Typography color="text.secondary">
-          No hay datos disponibles
-        </Typography>{" "}
+        <Typography color="text.h6">No hay datos disponibles</Typography>{" "}
       </Paper>
     );
   }
   return (
     <Paper sx={{ p: 2, height }}>
       {" "}
-      <Typography variant="subtitle2" fontWeight={600} mb={1}>
+      <Typography variant="h6" fontWeight={600} mb={1}>
         {" "}
         {title}{" "}
       </Typography>{" "}
@@ -67,17 +65,10 @@ export function SocialChart({
           xAxis={[{ data: xLabels, scaleType: "point" }]}
           series={series.map((s) => ({
             data: s.data,
-            label: s.label,
             color: s.color || undefined,
           }))}
           margin={{ top: 10, right: 40, bottom: 20, left: 30 }}
-          height={height - 40}
-          slotProps={{
-            legend: {
-              position: { vertical: "bottom", horizontal: "middle" },
-              direction: "row",
-            },
-          }}
+          height={height - 70}
         />
       )}{" "}
       {chartType === "bar" && (
