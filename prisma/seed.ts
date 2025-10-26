@@ -21,16 +21,23 @@ async function main() {
           phone: "+52 55 1234 5678",
           email: "contacto@ecopyme.mx",
 
-          // 🔹 RECURSOS AMBIENTALES (bimestral, tendencia -3%)
+          // 🔹 RECURSOS AMBIENTALES (bimestral, tendencias variadas realistas)
           resources: {
             createMany: {
               data: (() => {
                 const data = [];
                 const start = new Date("2024-01-01");
                 const months = 12; // 2 años = 12 bimestres
-                let agua = 1200;
-                let luz = 850;
-                let gas = 620;
+                let agua = 1200; // Agua: -5% por periodo (buena conservación)
+                let luz = 850;   // Luz: -2.5% por periodo (eficiencia moderada)
+                let gas = 620;   // Gas: variable (algunos incrementos, otros decrementos)
+                let transporte = 450; // Transporte: variable (eficiencia en logística)
+
+                // Factores de variación para gas (más realista)
+                const gasFactors = [0.97, 0.95, 0.98, 1.02, 0.96, 1.01, 0.99, 0.97, 1.03, 0.98, 0.96, 0.99];
+                // Factores de variación para transporte
+                const transporteFactors = [0.98, 0.96, 0.94, 0.95, 0.93, 0.92, 0.94, 0.91, 0.90, 0.89, 0.88, 0.87];
+
                 for (let i = 0; i < months; i++) {
                   const date = new Date(start);
                   date.setMonth(i * 2);
@@ -53,12 +60,19 @@ async function main() {
                       type: resourceType.GAS,
                       consumption: parseFloat(gas.toFixed(2)),
                       date,
+                    },
+                    {
+                      name: "Consumo de transporte",
+                      type: resourceType.TRANSPORTE,
+                      consumption: parseFloat(transporte.toFixed(2)),
+                      date,
                     }
                   );
 
-                  agua *= 0.97; // reduce 3%
-                  luz *= 0.97;
-                  gas *= 0.97;
+                  agua *= 0.95; // reduce 5% por periodo
+                  luz *= 0.975; // reduce 2.5% por periodo
+                  gas *= gasFactors[i]; // variación realista
+                  transporte *= transporteFactors[i]; // mejora gradual en eficiencia
                 }
                 return data;
               })(),

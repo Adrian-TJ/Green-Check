@@ -24,6 +24,7 @@ export async function verifyUserService(
       include: { pyme: true },
     });
 
+    console.log("[verifyUserService] Found user:", user);
 
     if (!user) {
       return {
@@ -45,6 +46,9 @@ export async function verifyUserService(
     // Remove password from response
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...userWithoutPassword } = user;
+
+    console.log("[verifyUserService] Returning user without password:", userWithoutPassword);
+    console.log("[verifyUserService] User has pyme:", !!userWithoutPassword.pyme, userWithoutPassword.pyme);
 
     return {
       status: "success",
