@@ -37,20 +37,86 @@ export default function SocialRegister() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
+  const [validationErrors, setValidationErrors] = useState<
+    Record<string, string>
+  >({});
 
   const handleFormChange = (field: string, value: string | number) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    // Clear validation error for this field when user changes it
+    setValidationErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors[field];
+      return newErrors;
+    });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Validate form data
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
 
-    if (!isAuthenticated || !user?.pyme?.id) {
-      setMessage("Debes iniciar sesión para registrar métricas sociales");
-      return;
+    const men = parseInt(formData.men) || 0;
+    const women = parseInt(formData.women) || 0;
+    const menLeadership = parseInt(formData.menLeadership) || 0;
+    const womenLeadership = parseInt(formData.womenLeadership) || 0;
+    const trainingHours = parseFloat(formData.trainingHours) || 0;
+    const satisfactionRate = formData.satisfactionRate;
+    const employeesWithInsurance =
+      parseInt(formData.employeesWithInsurance) || 0;
+    const employeesWithoutInsurance =
+      parseInt(formData.employeesWithoutInsurance) || 0;
+
+    const totalEmployees = men + women;
+    const totalLeadership = menLeadership + womenLeadership;
+    const totalInsured = employeesWithInsurance + employeesWithoutInsurance;
+
+    // Validate negative numbers
+    if (men < 0) errors.men = "No puede ser negativo";
+    if (women < 0) errors.women = "No puede ser negativo";
+    if (menLeadership < 0) errors.menLeadership = "No puede ser negativo";
+    if (womenLeadership < 0) errors.womenLeadership = "No puede ser negativo";
+    if (trainingHours < 0) errors.trainingHours = "No puede ser negativo";
+    if (satisfactionRate < 0 || satisfactionRate > 100) {
+      errors.satisfactionRate = "Debe estar entre 0 y 100";
+    }
+    if (employeesWithInsurance < 0)
+      errors.employeesWithInsurance = "No puede ser negativo";
+    if (employeesWithoutInsurance < 0)
+      errors.employeesWithoutInsurance = "No puede ser negativo";
+
+    // Validate leadership doesn't exceed gender totals
+    if (menLeadership > men) {
+      errors.menLeadership = `No puede exceder el total de hombres (${men})`;
+    }
+    if (womenLeadership > women) {
+      errors.womenLeadership = `No puede exceder el total de mujeres (${women})`;
     }
 
-    // Validate required fields
+    // Validate total leadership
+    if (totalLeadership > totalEmployees) {
+      errors.menLeadership = "El liderazgo total excede el total de empleados";
+      errors.womenLeadership =
+        "El liderazgo total excede el total de empleados";
+    }
+
+    // Validate insurance numbers
+    if (employeesWithInsurance > totalEmployees) {
+      errors.employeesWithInsurance = `No puede exceder el total de empleados (${totalEmployees})`;
+    }
+    if (employeesWithoutInsurance > totalEmployees) {
+      errors.employeesWithoutInsurance = `No puede exceder el total de empleados (${totalEmployees})`;
+    }
+    if (totalInsured != totalEmployees) {
+      errors.employeesWithInsurance = `La suma de seguros (${totalInsured}) no es igual al total de empleados (${totalEmployees})`;
+      errors.employeesWithoutInsurance = `La suma de seguros (${totalInsured}) no es igual al total de empleados (${totalEmployees})`;
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Check if form is valid for submit button
+  const isFormValid = (): boolean => {
     const requiredFields = [
       "men",
       "women",
@@ -62,12 +128,51 @@ export default function SocialRegister() {
       "employeesWithoutInsurance",
     ];
 
-    const missingFields = requiredFields.filter(
-      (field) => !formData[field as keyof typeof formData]
+    const allFieldsFilled = requiredFields.every(
+      (field) => formData[field as keyof typeof formData] !== ""
     );
 
-    if (missingFields.length > 0) {
-      setMessage("Por favor completa todos los campos obligatorios");
+    if (!allFieldsFilled) return false;
+
+    // Quick validation without setting errors
+    const men = parseInt(formData.men) || 0;
+    const women = parseInt(formData.women) || 0;
+    const menLeadership = parseInt(formData.menLeadership) || 0;
+    const womenLeadership = parseInt(formData.womenLeadership) || 0;
+    const employeesWithInsurance =
+      parseInt(formData.employeesWithInsurance) || 0;
+    const employeesWithoutInsurance =
+      parseInt(formData.employeesWithoutInsurance) || 0;
+    const totalEmployees = men + women;
+    const totalInsured = employeesWithInsurance + employeesWithoutInsurance;
+
+    return (
+      men >= 0 &&
+      women >= 0 &&
+      menLeadership >= 0 &&
+      womenLeadership >= 0 &&
+      menLeadership <= men &&
+      womenLeadership <= women &&
+      menLeadership + womenLeadership <= totalEmployees &&
+      employeesWithInsurance >= 0 &&
+      employeesWithoutInsurance >= 0 &&
+      employeesWithInsurance <= totalEmployees &&
+      employeesWithoutInsurance <= totalEmployees &&
+      totalInsured <= totalEmployees
+    );
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!isAuthenticated || !user?.pyme?.id) {
+      setMessage("Debes iniciar sesión para registrar métricas sociales");
+      return;
+    }
+
+    // Validate form
+    if (!validateForm()) {
+      setMessage("Por favor corrige los errores en el formulario");
       return;
     }
 
@@ -90,7 +195,7 @@ export default function SocialRegister() {
           menLeadership: parseInt(formData.menLeadership),
           womenLeadership: parseInt(formData.womenLeadership),
           trainingHours: parseFloat(formData.trainingHours),
-          satisfactionRate: formData.satisfactionRate,
+          satisfactionRate: formData.satisfactionRate / 100,
           communityPrograms: formData.communityPrograms === "yes",
           employeesWithInsurance: parseInt(formData.employeesWithInsurance),
           employeesWithoutInsurance: parseInt(
@@ -123,6 +228,7 @@ export default function SocialRegister() {
         employeesWithoutInsurance: "",
         date: new Date().toISOString().split("T")[0],
       });
+      setValidationErrors({});
     } catch (error) {
       console.error("Save social metrics error:", error);
       setMessage(
@@ -212,6 +318,8 @@ export default function SocialRegister() {
                   value={formData.men}
                   onChange={(e) => handleFormChange("men", e.target.value)}
                   inputProps={{ min: "0", step: "1" }}
+                  error={!!validationErrors.men}
+                  helperText={validationErrors.men}
                 />
                 <TextField
                   label="Número de Mujeres"
@@ -220,6 +328,9 @@ export default function SocialRegister() {
                   fullWidth
                   value={formData.women}
                   onChange={(e) => handleFormChange("women", e.target.value)}
+                  inputProps={{ min: "0", step: "1" }}
+                  error={!!validationErrors.women}
+                  helperText={validationErrors.women}
                 />
               </Stack>
             </Box>
@@ -239,6 +350,9 @@ export default function SocialRegister() {
                   onChange={(e) =>
                     handleFormChange("menLeadership", e.target.value)
                   }
+                  inputProps={{ min: "0", step: "1" }}
+                  error={!!validationErrors.menLeadership}
+                  helperText={validationErrors.menLeadership}
                 />
                 <TextField
                   label="Mujeres en Roles de Liderazgo"
@@ -249,6 +363,9 @@ export default function SocialRegister() {
                   onChange={(e) =>
                     handleFormChange("womenLeadership", e.target.value)
                   }
+                  inputProps={{ min: "0", step: "1" }}
+                  error={!!validationErrors.womenLeadership}
+                  helperText={validationErrors.womenLeadership}
                 />
               </Stack>
             </Box>
@@ -268,7 +385,12 @@ export default function SocialRegister() {
                   onChange={(e) =>
                     handleFormChange("trainingHours", e.target.value)
                   }
-                  helperText="Total de horas de capacitación proporcionadas"
+                  inputProps={{ min: "0", step: "0.5" }}
+                  helperText={
+                    validationErrors.trainingHours ||
+                    "Total de horas de capacitación proporcionadas"
+                  }
+                  error={!!validationErrors.trainingHours}
                 />
 
                 <Box>
@@ -288,6 +410,11 @@ export default function SocialRegister() {
                     min={0}
                     max={100}
                   />
+                  {validationErrors.satisfactionRate && (
+                    <Typography variant="caption" color="error">
+                      {validationErrors.satisfactionRate}
+                    </Typography>
+                  )}
                 </Box>
               </Stack>
             </Box>
@@ -332,6 +459,9 @@ export default function SocialRegister() {
                   onChange={(e) =>
                     handleFormChange("employeesWithInsurance", e.target.value)
                   }
+                  inputProps={{ min: "0", step: "1" }}
+                  error={!!validationErrors.employeesWithInsurance}
+                  helperText={validationErrors.employeesWithInsurance}
                 />
                 <TextField
                   label="Empleados sin Seguro"
@@ -345,6 +475,9 @@ export default function SocialRegister() {
                       e.target.value
                     )
                   }
+                  inputProps={{ min: "0", step: "1" }}
+                  error={!!validationErrors.employeesWithoutInsurance}
+                  helperText={validationErrors.employeesWithoutInsurance}
                 />
               </Stack>
             </Box>
@@ -364,7 +497,7 @@ export default function SocialRegister() {
               variant="primary"
               fullWidth
               size="large"
-              disabled={!isAuthenticated || submitting}
+              disabled={!isAuthenticated || submitting || !isFormValid()}
               startIcon={<SendIcon />}
             >
               {submitting ? "Enviando..." : "Registrar Métricas Sociales"}

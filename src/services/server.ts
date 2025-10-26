@@ -839,6 +839,187 @@ app.post("/api/save-resource", async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * Save social metrics data to database
+ */
+app.post("/api/save-social-metrics", async (req: Request, res: Response) => {
+  try {
+    const {
+      pymeId,
+      men,
+      women,
+      menLeadership,
+      womenLeadership,
+      trainingHours,
+      satisfactionRate,
+      communityPrograms,
+      employeesWithInsurance,
+      employeesWithoutInsurance,
+      date,
+    } = req.body;
+
+    // Validate required fields
+    if (
+      !pymeId ||
+      men === undefined ||
+      women === undefined ||
+      menLeadership === undefined ||
+      womenLeadership === undefined ||
+      trainingHours === undefined ||
+      satisfactionRate === undefined ||
+      communityPrograms === undefined ||
+      employeesWithInsurance === undefined ||
+      employeesWithoutInsurance === undefined
+    ) {
+      return res.status(400).json({
+        error: "Missing required fields",
+        message: "All social metrics fields are required",
+      });
+    }
+
+    // Validate Pyme exists
+    const pyme = await prisma.pyme.findUnique({
+      where: { id: pymeId },
+    });
+
+    if (!pyme) {
+      return res.status(404).json({
+        error: "Pyme not found",
+        message: "The specified Pyme does not exist",
+      });
+    }
+
+    // Business logic validations
+    const totalEmployees =
+      parseInt(men.toString()) + parseInt(women.toString());
+    const totalLeadership =
+      parseInt(menLeadership.toString()) + parseInt(womenLeadership.toString());
+    const totalInsured =
+      parseInt(employeesWithInsurance.toString()) +
+      parseInt(employeesWithoutInsurance.toString());
+
+    // Validate leadership doesn't exceed total employees
+    if (parseInt(menLeadership.toString()) > parseInt(men.toString())) {
+      return res.status(400).json({
+        error: "Validation error",
+        message:
+          "El número de hombres en liderazgo no puede ser mayor que el total de hombres",
+      });
+    }
+
+    if (parseInt(womenLeadership.toString()) > parseInt(women.toString())) {
+      return res.status(400).json({
+        error: "Validation error",
+        message:
+          "El número de mujeres en liderazgo no puede ser mayor que el total de mujeres",
+      });
+    }
+
+    if (totalLeadership > totalEmployees) {
+      return res.status(400).json({
+        error: "Validation error",
+        message:
+          "El número total de empleados en liderazgo no puede exceder el total de empleados",
+      });
+    }
+
+    // Validate insurance numbers
+    if (totalInsured > totalEmployees) {
+      return res.status(400).json({
+        error: "Validation error",
+        message: `El total de empleados con y sin seguro (${totalInsured}) no puede exceder el total de empleados (${totalEmployees})`,
+      });
+    }
+
+    if (parseInt(employeesWithInsurance.toString()) > totalEmployees) {
+      return res.status(400).json({
+        error: "Validation error",
+        message: `El número de empleados con seguro (${employeesWithInsurance}) no puede exceder el total de empleados (${totalEmployees})`,
+      });
+    }
+
+    if (parseInt(employeesWithoutInsurance.toString()) > totalEmployees) {
+      return res.status(400).json({
+        error: "Validation error",
+        message: `El número de empleados sin seguro (${employeesWithoutInsurance}) no puede exceder el total de empleados (${totalEmployees})`,
+      });
+    }
+
+    // Validate negative numbers
+    if (
+      parseInt(men.toString()) < 0 ||
+      parseInt(women.toString()) < 0 ||
+      parseInt(menLeadership.toString()) < 0 ||
+      parseInt(womenLeadership.toString()) < 0 ||
+      parseFloat(trainingHours.toString()) < 0 ||
+      parseFloat(satisfactionRate.toString()) < 0 ||
+      parseFloat(satisfactionRate.toString()) > 1 ||
+      parseInt(employeesWithInsurance.toString()) < 0 ||
+      parseInt(employeesWithoutInsurance.toString()) < 0
+    ) {
+      return res.status(400).json({
+        error: "Validation error",
+        message:
+          "Los valores no pueden ser negativos y la tasa de satisfacción debe estar entre 0 y 1",
+      });
+    }
+
+    // Determine the date to use
+    let metricsDate = new Date(); // Default to now
+    if (date) {
+      const parsedDate = new Date(date);
+      if (!isNaN(parsedDate.getTime())) {
+        metricsDate = parsedDate;
+        console.log(`Using provided date: ${metricsDate.toISOString()}`);
+      }
+    }
+
+    // Create social metrics in database
+    const socialMetrics = await prisma.social.create({
+      data: {
+        men: parseInt(men.toString()),
+        women: parseInt(women.toString()),
+        men_in_leadership: parseInt(menLeadership.toString()),
+        women_in_leadership: parseInt(womenLeadership.toString()),
+        training_hours: parseInt(trainingHours.toString()),
+        satisfaction_rate: parseFloat(satisfactionRate.toString()),
+        community_programs: Boolean(communityPrograms),
+        insured_employees: parseInt(employeesWithInsurance.toString()),
+        uninsured_employees: parseInt(employeesWithoutInsurance.toString()),
+        pymeId,
+        date: metricsDate,
+      },
+    });
+
+    console.log(
+      `Social metrics saved: ${
+        socialMetrics.id
+      } for Pyme ${pymeId} on ${metricsDate.toISOString()}`
+    );
+    console.log(`- Total employees: ${men + women}`);
+    console.log(`- Gender ratio: ${men} men, ${women} women`);
+    console.log(`- Leadership: ${menLeadership} men, ${womenLeadership} women`);
+    console.log(`- Training hours: ${trainingHours}`);
+    console.log(`- Satisfaction rate: ${satisfactionRate}%`);
+    console.log(`- Community programs: ${communityPrograms ? "Yes" : "No"}`);
+    console.log(
+      `- Insurance coverage: ${employeesWithInsurance} insured, ${employeesWithoutInsurance} uninsured`
+    );
+
+    res.json({
+      success: true,
+      message: "Social metrics saved successfully",
+      data: socialMetrics,
+    });
+  } catch (error) {
+    console.error("Save Social Metrics Error:", error);
+    res.status(500).json({
+      error: "Failed to save social metrics",
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});
+
 // Start the HTTPS server
 https.createServer(sslOptions, app).listen(PORT, () => {
   console.log(`HTTPS OCR Server running on https://localhost:${PORT}`);
