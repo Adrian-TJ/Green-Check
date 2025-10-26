@@ -100,7 +100,20 @@ export default function SocialPage() {
     totalInsured > 0 ? (insuredValue / totalInsured) * 100 : 0;
 
   // Obtener el estado del programa comunitario
-  const hasCommunityProgram = latestData?.community_programs || false;
+  // Obtener el estado del programa comunitario
+  // Verificar si hubo al menos un programa comunitario en el mes actual
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+
+  const hasCommunityProgram =
+    social?.some((item) => {
+      const itemDate = new Date(item.date);
+      return (
+        itemDate.getMonth() === currentMonth &&
+        itemDate.getFullYear() === currentYear &&
+        item.community_programs === true
+      );
+    }) || false;
 
   // Prepare data for metric cards
   const totalEmployeesData =

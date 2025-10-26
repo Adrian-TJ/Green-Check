@@ -2,7 +2,30 @@
 
 import { db } from "@/utils/db";
 import type { GeneralResponse } from "@/models/generalResponse";
-import type { GovernanceScore } from "../models/Governance";
+import type { GovernanceScore, GovernanceDocument } from "../models/Governance";
+
+export async function getLatestGovernanceService(
+  pymeId: string
+): Promise<GeneralResponse<GovernanceDocument | null>> {
+  try {
+    const governance = await db.governance.findMany({
+      where: { pymeId },
+      orderBy: { created_at: "desc" },
+    });
+
+    return {
+      status: "success",
+      message: "Governance documents retrieved successfully",
+      data: governance,
+    };
+  } catch (error) {
+    console.error("Error retrieving governance documents:", error);
+    return {
+      status: "error",
+      message: "Failed to retrieve governance documents",
+    };
+  }
+}
 
 export async function getGovernanceService(
   pymeId: string
@@ -30,8 +53,8 @@ export async function getGovernanceService(
     // Governance impact weights (based on corporate governance best practices)
     // Total = 100% for normalization
     const weights = {
-      ethics: 0.50,          // 50% - Code of ethics (foundational governance)
-      antiCorruption: 0.50,  // 50% - Anti-corruption policy (risk management)
+      ethics: 0.5, // 50% - Code of ethics (foundational governance)
+      antiCorruption: 0.5, // 50% - Anti-corruption policy (risk management)
     };
 
     // Find when each policy was first adopted
@@ -77,8 +100,8 @@ export async function getGovernanceService(
 
       // Calculate weighted total score
       const weightedScore =
-        (ethicsScore * weights.ethics) +
-        (antiCorruptionScore * weights.antiCorruption);
+        ethicsScore * weights.ethics +
+        antiCorruptionScore * weights.antiCorruption;
 
       return {
         date: entry.date.toISOString().split("T")[0],

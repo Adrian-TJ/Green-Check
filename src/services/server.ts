@@ -6,9 +6,15 @@ import https from "https";
 import fs from "fs";
 import path from "path";
 import sharp from "sharp";
+const pdfParse = require("pdf-parse");
 
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+} from "@aws-sdk/client-s3";
 import dotenv from "dotenv";
+import { GoogleGenAI, Type } from "@google/genai";
 
 dotenv.config();
 
@@ -16,6 +22,7 @@ const BUCKET_NAME = process.env.BUCKET_NAME;
 const BUCKET_REGION = process.env.BUCKET_REGION;
 const AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID;
 const AWS_SECRET_KEY = process.env.AWS_SECRET_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 let s3: S3Client | undefined = undefined;
 if (AWS_ACCESS_KEY_ID && AWS_SECRET_KEY && BUCKET_REGION) {
@@ -87,6 +94,21 @@ const upload = multer({
     // Accept images only
     if (!file.mimetype.startsWith("image/")) {
       return cb(new Error("Only image files are allowed!"));
+    }
+    cb(null, true);
+  },
+});
+
+// Configure multer for PDF uploads (separate from image uploads)
+const uploadPDF = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 20 * 1024 * 1024, // 20MB limit for PDFs
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept PDF files only
+    if (file.mimetype !== "application/pdf") {
+      return cb(new Error("Only PDF files are allowed!"));
     }
     cb(null, true);
   },
@@ -1019,6 +1041,565 @@ app.post("/api/save-social-metrics", async (req: Request, res: Response) => {
     });
   }
 });
+
+/**
+ * Upload PDF file to AWS S3
+ */
+app.post(
+  "/api/upload-pdf",
+  uploadPDF.single("file"),
+  async (req: Request, res: Response) => {
+    try {
+      // Validate S3 is configured
+      if (!s3 || !BUCKET_NAME) {
+        return res.status(500).json({
+          error: "S3 not configured",
+          message:
+            "AWS S3 credentials are not properly configured on the server",
+        });
+      }
+
+      if (!req.file || !req.file.buffer) {
+        return res
+          .status(400)
+          .json({ error: "No PDF file uploaded or file is empty" });
+      }
+
+      console.log(
+        `Processing PDF upload: ${req.file.originalname} (${req.file.size} bytes)`
+      );
+
+      // Get metadata from request body
+      const { pymeId, documentType, description } = req.body;
+
+      console.log("Upload PDF request body:", {
+        pymeId,
+        documentType,
+        description,
+      });
+
+      // Validate required fields
+      if (!pymeId) {
+        return res.status(400).json({
+          error: "Missing required field",
+          message: "pymeId is required",
+        });
+      }
+
+      if (!documentType) {
+        return res.status(400).json({
+          error: "Missing required field",
+          message:
+            "documentType is required (codigo_etica, anti_corrupcion, gestion_riesgos)",
+        });
+      }
+
+      // Validate Pyme exists
+      console.log("Looking up Pyme with ID:", pymeId);
+      const pyme = await prisma.pyme.findUnique({
+        where: { id: pymeId },
+      });
+
+      console.log(
+        "Pyme lookup result:",
+        pyme ? `Found: ${pyme.name}` : "NOT FOUND"
+      );
+
+      if (!pyme) {
+        return res.status(404).json({
+          error: "Pyme not found",
+          message: "The specified Pyme does not exist",
+        });
+      }
+
+      // Validate document type
+      const validDocTypes = [
+        "codigo_etica",
+        "anti_corrupcion",
+        "gestion_riesgos",
+      ];
+      if (!validDocTypes.includes(documentType)) {
+        return res.status(400).json({
+          error: "Invalid document type",
+          message: `Document type must be one of: ${validDocTypes.join(", ")}`,
+        });
+      }
+
+      // Generate a unique filename to prevent overwrites
+      const timestamp = Date.now();
+      const sanitizedFilename = req.file.originalname.replace(
+        /[^a-zA-Z0-9._-]/g,
+        "_"
+      );
+      const uniqueFilename = `pdfs/governance/${pymeId}/${documentType}/${timestamp}_${sanitizedFilename}`;
+
+      // Prepare S3 upload parameters
+      const params = {
+        Bucket: BUCKET_NAME,
+        Key: uniqueFilename,
+        Body: req.file.buffer,
+        ContentType: "application/pdf",
+        Metadata: {
+          originalName: req.file.originalname,
+          uploadedAt: new Date().toISOString(),
+          pymeId,
+          documentType,
+          ...(description && { description }),
+        },
+      };
+
+      // Upload to S3
+      const command = new PutObjectCommand(params);
+      await s3.send(command);
+
+      console.log(`PDF uploaded successfully to S3: ${uniqueFilename}`);
+
+      // Generate the S3 URL
+      const s3Url = `https://${BUCKET_NAME}.s3.${BUCKET_REGION}.amazonaws.com/${uniqueFilename}`;
+
+      // Map document type to database field
+      const documentTypeToField: Record<string, string> = {
+        codigo_etica: "codigo_etica_url",
+        anti_corrupcion: "anti_corrupcion_url",
+        gestion_riesgos: "risk_file_url",
+      };
+
+      const fieldName = documentTypeToField[documentType];
+
+      // Check if governance record exists for this pyme
+      let governanceRecord = await prisma.governance.findFirst({
+        where: { pymeId },
+        orderBy: { created_at: "desc" },
+      });
+
+      if (governanceRecord) {
+        // Update existing record
+        governanceRecord = await prisma.governance.update({
+          where: { id: governanceRecord.id },
+          data: {
+            [fieldName]: s3Url,
+            updated_at: new Date(),
+          },
+        });
+        console.log(
+          `Updated governance record ${governanceRecord.id} with ${fieldName}`
+        );
+      } else {
+        // Create new record
+        governanceRecord = await prisma.governance.create({
+          data: {
+            pymeId,
+            [fieldName]: s3Url,
+            // Set required field to empty string if it's not the current upload
+            ...(documentType !== "gestion_riesgos" && { risk_file_url: "" }),
+          },
+        });
+        console.log(
+          `Created new governance record ${governanceRecord.id} with ${fieldName}`
+        );
+      }
+
+      res.json({
+        success: true,
+        message: "PDF uploaded successfully and saved to database",
+        data: {
+          filename: uniqueFilename,
+          originalName: req.file.originalname,
+          fileSize: req.file.size,
+          s3Url,
+          key: uniqueFilename,
+          uploadedAt: new Date().toISOString(),
+          governanceId: governanceRecord.id,
+          metadata: {
+            pymeId,
+            documentType,
+            description,
+          },
+        },
+      });
+    } catch (error) {
+      console.error("PDF Upload Error:", error);
+      res.status(500).json({
+        error: "Failed to upload PDF",
+        message: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }
+);
+
+/**
+ * Analyze PDF document using Gemini AI
+ * Receives document type and pymeId, retrieves the most recent document from DB
+ */
+app.post("/api/analyze-pdf", async (req: Request, res: Response) => {
+  try {
+    const { documentType, pymeId } = req.body;
+
+    console.log("Analyze PDF request:", { documentType, pymeId });
+
+    // Validate required fields
+    if (!documentType) {
+      return res.status(400).json({
+        error: "Missing required field",
+        message:
+          "documentType is required (codigo_etica, anti_corrupcion, gestion_riesgos)",
+      });
+    }
+
+    if (!pymeId) {
+      return res.status(400).json({
+        error: "Missing required field",
+        message: "pymeId is required",
+      });
+    }
+
+    // Validate document type
+    const validDocTypes = [
+      "codigo_etica",
+      "anti_corrupcion",
+      "gestion_riesgos",
+    ];
+    if (!validDocTypes.includes(documentType)) {
+      return res.status(400).json({
+        error: "Invalid document type",
+        message: `Document type must be one of: ${validDocTypes.join(", ")}`,
+      });
+    }
+
+    // Map document type to database field
+    const documentTypeToField: Record<string, string> = {
+      codigo_etica: "codigo_etica_url",
+      anti_corrupcion: "anti_corrupcion_url",
+      gestion_riesgos: "risk_file_url",
+    };
+
+    const fieldName = documentTypeToField[documentType];
+
+    // Get the most recent governance record for this pyme
+    const allGovernanceRecords = await prisma.governance.findMany({
+      where: {
+        pymeId,
+      },
+      orderBy: {
+        updated_at: "desc",
+      },
+    });
+
+    // Filter for records that have the specified document type
+    const governanceRecord = allGovernanceRecords.find((record) => {
+      const url = (record as any)[fieldName];
+      return url !== null && url !== undefined && url !== "";
+    });
+
+    if (!governanceRecord) {
+      return res.status(404).json({
+        error: "Document not found",
+        message: `No ${documentType} document found for this Pyme`,
+      });
+    }
+
+    // Get the S3 URL from the governance record
+    const s3Url = (governanceRecord as any)[fieldName];
+
+    if (!s3Url) {
+      return res.status(404).json({
+        error: "Document URL not found",
+        message: `The ${documentType} document URL is missing`,
+      });
+    }
+
+    console.log("Retrieved most recent document:", {
+      governanceId: governanceRecord.id,
+      s3Url,
+      updatedAt: governanceRecord.updated_at,
+    });
+
+    // Validate Gemini API key
+    if (!GEMINI_API_KEY) {
+      return res.status(500).json({
+        error: "Gemini API not configured",
+        message: "GEMINI_API_KEY is not set in environment variables",
+      });
+    }
+
+    // Validate S3 is configured
+    if (!s3 || !BUCKET_NAME) {
+      return res.status(500).json({
+        error: "S3 not configured",
+        message: "AWS S3 credentials are not properly configured",
+      });
+    }
+
+    // Extract S3 key from URL
+    // Format: https://bucket-name.s3.region.amazonaws.com/path/to/file.pdf
+    const s3UrlPattern = new RegExp(
+      `https://${BUCKET_NAME}\\.s3\\.${BUCKET_REGION}\\.amazonaws\\.com/(.+)`
+    );
+    const match = s3Url.match(s3UrlPattern);
+
+    if (!match) {
+      return res.status(400).json({
+        error: "Invalid S3 URL",
+        message: "The provided S3 URL format is invalid",
+      });
+    }
+
+    const s3Key = decodeURIComponent(match[1]);
+    console.log("Extracted S3 key:", s3Key);
+
+    // Download PDF from S3
+    console.log("Downloading PDF from S3...");
+    const getCommand = new GetObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: s3Key,
+    });
+
+    const s3Response = await s3.send(getCommand);
+
+    if (!s3Response.Body) {
+      return res.status(500).json({
+        error: "Failed to download PDF",
+        message: "S3 response body is empty",
+      });
+    }
+
+    // Convert stream to buffer
+    const pdfBuffer = await streamToBuffer(s3Response.Body);
+    console.log(`PDF downloaded successfully (${pdfBuffer.length} bytes)`);
+
+    // Parse PDF to extract text
+    console.log("Parsing PDF to extract text...");
+    let pdfText = "";
+    let pageCount = 0;
+
+    try {
+      const pdfData = await pdfParse(pdfBuffer);
+      pdfText = pdfData.text;
+      pageCount = pdfData.numpages;
+      console.log(
+        `PDF parsed successfully: ${pageCount} pages, ${pdfText.length} characters`
+      );
+      console.log(`Text preview: ${pdfText.substring(0, 200)}...`);
+    } catch (parseError) {
+      console.error("Failed to parse PDF:", parseError);
+      // If PDF parsing fails, we'll still analyze based on metadata
+      pdfText = "";
+    }
+
+    // Get document context
+    const documentContext = getDocumentContext(documentType);
+
+    // Initialize Gemini AI client
+    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+
+    // Prepare the prompt with actual PDF content
+    const prompt = pdfText
+      ? `Eres un experto en análisis de documentos de gobernanza corporativa para PyMEs.
+
+Analiza el siguiente documento de tipo "${documentContext.name}" y proporciona:
+
+1. Una puntuación del 1 al 100 sobre qué tan completo y adecuado es el documento
+2. Exactamente 4 recomendaciones específicas y accionables para mejorar el documento
+
+Contexto del documento:
+- Tipo: ${documentContext.name}
+- Descripción: ${documentContext.description}
+- Elementos clave que debe contener: ${documentContext.keyElements.join(", ")}
+- Número de páginas: ${pageCount}
+- Tamaño del archivo: ${pdfBuffer.length} bytes
+
+CONTENIDO DEL DOCUMENTO:
+${pdfText}
+
+Analiza el contenido real del documento y proporciona recomendaciones específicas basadas en lo que está presente o ausente.
+
+Las recomendaciones deben ser:
+- Específicas al contenido del documento
+- Accionables y concretas
+- Enfocadas en mejoras reales identificadas
+- Priorizadas por importancia`
+      : `Eres un experto en análisis de documentos de gobernanza corporativa para PyMEs.
+
+Analiza el siguiente documento de tipo "${documentContext.name}" y proporciona:
+
+1. Una puntuación del 1 al 100 sobre qué tan completo y adecuado es el documento
+2. Exactamente 4 recomendaciones específicas y accionables para mejorar el documento
+
+Contexto del documento:
+- Tipo: ${documentContext.name}
+- Descripción: ${documentContext.description}
+- Elementos clave que debe contener: ${documentContext.keyElements.join(", ")}
+- Tamaño del archivo: ${pdfBuffer.length} bytes
+
+Nota: No se pudo extraer el texto del PDF. Proporciona un análisis general basado en las mejores prácticas para documentos de "${
+          documentContext.name
+        }" en PyMEs mexicanas.
+
+Las recomendaciones deben ser:
+- Específicas y accionables
+- Relevantes para el tipo de documento
+- Enfocadas en mejoras concretas
+- Priorizadas por importancia`;
+
+    // Call Gemini API with structured output
+    console.log("Calling Gemini API for analysis...");
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            score: {
+              type: Type.INTEGER,
+            },
+            recommendations: {
+              type: Type.OBJECT,
+              properties: {
+                recommendation1: {
+                  type: Type.STRING,
+                },
+                recommendation2: {
+                  type: Type.STRING,
+                },
+                recommendation3: {
+                  type: Type.STRING,
+                },
+                recommendation4: {
+                  type: Type.STRING,
+                },
+              },
+              propertyOrdering: [
+                "recommendation1",
+                "recommendation2",
+                "recommendation3",
+                "recommendation4",
+              ],
+            },
+          },
+          propertyOrdering: ["score", "recommendations"],
+        },
+      },
+    });
+
+    console.log("Gemini API response received");
+
+    // Parse the JSON response
+    const responseText = response.text || "{}";
+    const analysis = JSON.parse(responseText);
+
+    res.json({
+      success: true,
+      message: "PDF analyzed successfully",
+      data: {
+        documentType,
+        s3Url,
+        governanceId: governanceRecord.id,
+        pymeId,
+        fileSize: pdfBuffer.length,
+        pageCount: pageCount || undefined,
+        textLength: pdfText.length || undefined,
+        analysis: {
+          score: analysis.score,
+          recommendations: analysis.recommendations,
+        },
+        analyzedAt: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error("PDF Analysis Error:", error);
+    res.status(500).json({
+      error: "Failed to analyze PDF",
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});
+
+/**
+ * Helper function to convert stream to buffer
+ */
+async function streamToBuffer(stream: any): Promise<Buffer> {
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+/**
+ * Get document context based on document type
+ */
+function getDocumentContext(documentType: string): {
+  name: string;
+  description: string;
+  keyElements: string[];
+} {
+  const contexts: Record<string, any> = {
+    codigo_etica: {
+      name: "Código de Ética",
+      description:
+        "Documento que establece los principios y valores éticos que guían el comportamiento de la empresa y sus empleados",
+      keyElements: [
+        "Declaración de misión y valores",
+        "Principios éticos fundamentales",
+        "Conflictos de interés",
+        "Trato a empleados y clientes",
+        "Responsabilidad social",
+        "Protección de información confidencial",
+        "Cumplimiento legal",
+        "Mecanismos de denuncia",
+        "Consecuencias por incumplimiento",
+      ],
+    },
+    anti_corrupcion: {
+      name: "Política Anti-Corrupción",
+      description:
+        "Documento que establece medidas y procedimientos para prevenir, detectar y combatir actos de corrupción",
+      keyElements: [
+        "Definición de corrupción y soborno",
+        "Prohibiciones específicas",
+        "Regalos y hospitalidad",
+        "Contribuciones políticas",
+        "Relaciones con funcionarios públicos",
+        "Due diligence de terceros",
+        "Controles internos",
+        "Capacitación",
+        "Sanciones",
+        "Canal de denuncias",
+      ],
+    },
+    gestion_riesgos: {
+      name: "Plan de Gestión de Riesgos",
+      description:
+        "Documento que identifica, evalúa y establece estrategias para gestionar los riesgos que enfrenta la empresa",
+      keyElements: [
+        "Identificación de riesgos",
+        "Evaluación y priorización",
+        "Estrategias de mitigación",
+        "Responsables",
+        "Indicadores de riesgo",
+        "Planes de contingencia",
+        "Monitoreo y revisión",
+        "Riesgos financieros",
+        "Riesgos operacionales",
+        "Riesgos de cumplimiento",
+      ],
+    },
+  };
+
+  return (
+    contexts[documentType] || {
+      name: documentType,
+      description: "Documento de gobernanza",
+      keyElements: [
+        "Contenido relevante",
+        "Estructura clara",
+        "Cumplimiento normativo",
+      ],
+    }
+  );
+}
 
 // Start the HTTPS server
 https.createServer(sslOptions, app).listen(PORT, () => {
