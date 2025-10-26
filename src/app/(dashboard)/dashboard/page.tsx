@@ -2,14 +2,14 @@
 
 import { Box, Container, Typography, Paper, Grid } from "@mui/material";
 import DashboardIcon from "@mui/icons-material/Dashboard";
-import NatureIcon from "@mui/icons-material/Nature";
-import PeopleIcon from "@mui/icons-material/People";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import { ResourceChart } from "@/modules/resources/components/ResourceChart";
-import { ResourceMetricCard } from "@/modules/resources/components/ResourceMetricCard";
 import { ESGGaugeCard } from "@/modules/resources/components/ESGGaugeCard";
 import { useESG } from "@/modules/esg/hooks/useESG";
 import { KPICard } from "@/modules/resources/components/KPICard";
+import { TrendCard } from "@/modules/resources/components/TrendCard";
+import { useESGInsights } from "@/modules/ai/hooks/useESGInsights";
+import { AIInsightsCard } from "@/modules/ai/components/AIInsightsCard";
 
 export default function DashboardPage() {
   /**
@@ -28,6 +28,13 @@ export default function DashboardPage() {
     isLoading,
   } = useESG();
 
+  // AI Insights Hook - automatically fetches insights when ESG data is available
+  const {
+    insights,
+    isLoading: insightsLoading,
+    error: insightsError,
+  } = useESGInsights(esgScores);
+
   /**
    * PILLAR SCORE CALCULATION (Latest Values)
    * Extract the most recent score for each pillar to display in gauge card
@@ -40,6 +47,13 @@ export default function DashboardPage() {
   const latestSocialScore = socialScores?.[socialScores.length - 1]?.score ?? 0;
   const latestGovernanceScore =
     governanceScores?.[governanceScores.length - 1]?.score ?? 0;
+
+  /**
+   * ESG SCORE TREND CALCULATION
+   * Extract current and previous total ESG scores for TrendCard
+   */
+  const currentESGScore = esgScores?.[esgScores.length - 1]?.esgScore ?? 0;
+  const previousESGScore = esgScores?.[esgScores.length - 2]?.esgScore ?? 0;
 
   /**
    * CHART DATA PREPARATION (Full Historical Data)
@@ -96,16 +110,45 @@ export default function DashboardPage() {
           />
         </Grid>
       </Grid>
-      {/* Metric Cards */}
+      {/* AI Insights Section - 2x3 Grid Layout */}
       <Grid container spacing={1} sx={{ mb: 1 }}>
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-          <KPICard
-            title="Interes"
-            value={14}
-            color="#4CAF50"
-            unit="%"
-            icon={<AssessmentIcon />}
-            isLoading={isLoading}
+        {/* Left Column - 2 items stacked */}
+        <Grid size={{ xs: 12, md: 2 }}>
+          <Grid container spacing={1}>
+            <Grid size={12}>
+              <KPICard
+                title="Interes"
+                value={
+                  16 -
+                  (3 *
+                    (latestEnvironmentScore +
+                      latestSocialScore +
+                      latestGovernanceScore)) /
+                    300
+                }
+                color=""
+                unit="%"
+                isLoading={isLoading}
+              />
+            </Grid>
+            <Grid size={12}>
+              <TrendCard
+                label="Puntuación ESG"
+                currentValue={currentESGScore}
+                previousValue={previousESGScore}
+                unit="pts"
+                isLoading={isLoading}
+              />
+            </Grid>
+          </Grid>
+        </Grid>
+
+        {/* Right Column - AI Insights spanning both rows */}
+        <Grid size={{ xs: 12, md: 10 }}>
+          <AIInsightsCard
+            insights={insights}
+            isLoading={insightsLoading}
+            error={insightsError}
           />
         </Grid>
       </Grid>
