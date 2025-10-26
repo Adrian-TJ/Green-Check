@@ -129,7 +129,7 @@ export default function QRCodeDisplay({
 
   return (
     <div
-      className={`flex flex-col items-center ${config.gap} ${config.borderRadius} bg-white ${config.containerPadding} shadow-md dark:bg-zinc-900`}
+      className={`flex flex-col items-center ${config.gap} ${config.borderRadius} bg-white ${config.containerPadding} inset-shadow-sm shadow-lg dark:bg-zinc-900`}
     >
       {error && (
         <div className="w-full rounded-md bg-red-50 p-2 text-xs text-red-600 dark:bg-red-950/20 dark:text-red-400">
