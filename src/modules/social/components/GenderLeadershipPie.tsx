@@ -1,13 +1,13 @@
-import * as React from 'react';
-import { PieChart, pieArcLabelClasses } from '@mui/x-charts/PieChart';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import { useDrawingArea } from '@mui/x-charts/hooks';
-import { styled } from '@mui/material/styles';
-import type { Theme } from '@mui/material/styles';
-import { Paper } from '@mui/material';
+import * as React from "react";
+import { PieChart, pieArcLabelClasses } from "@mui/x-charts/PieChart";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import { useDrawingArea } from "@mui/x-charts/hooks";
+import { styled } from "@mui/material/styles";
+import type { Theme } from "@mui/material/styles";
+import { Paper } from "@mui/material";
 
 // Interfaces para los datos
 interface GenderDatum {
@@ -25,21 +25,21 @@ interface ChartDatum {
   color: string;
 }
 
-type ViewType = 'gender' | 'leadership';
+type ViewType = "gender" | "leadership";
 
 // Colores para hombres y mujeres
 const genderColors = {
-  men: '#42A5F5',
-  women: '#EC407A',
-  men_leadership: '#1976D2',
-  women_leadership: '#C2185B'
+  men: "#42A5F5",
+  women: "#EC407A",
+  men_leadership: "#1976D2",
+  women_leadership: "#C2185B",
 };
 
-const StyledText = styled('text')(({ theme }: { theme: Theme }) => ({
+const StyledText = styled("text")(({ theme }: { theme: Theme }) => ({
   fill: theme.palette.text.primary,
-  textAnchor: 'middle',
-  dominantBaseline: 'central',
-  fontSize: 20,
+  textAnchor: "middle",
+  dominantBaseline: "central",
+  fontSize: 14,
 }));
 
 interface PieCenterLabelProps {
@@ -60,12 +60,15 @@ interface GenderLeadershipPieProps {
   isLoading?: boolean;
 }
 
-export default function GenderLeadershipPie({ data, isLoading }: GenderLeadershipPieProps): React.ReactElement {
-  const [view, setView] = React.useState<ViewType>('gender');
-  
+export default function GenderLeadershipPie({
+  data,
+  isLoading,
+}: GenderLeadershipPieProps): React.ReactElement {
+  const [view, setView] = React.useState<ViewType>("gender");
+
   const handleViewChange = (
     event: React.MouseEvent<HTMLElement>,
-    newView: ViewType | null,
+    newView: ViewType | null
   ) => {
     if (newView !== null) {
       setView(newView);
@@ -74,9 +77,17 @@ export default function GenderLeadershipPie({ data, isLoading }: GenderLeadershi
 
   if (isLoading || !data || data.length === 0) {
     return (
-      <Paper sx={{ p: 2, height: 400, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      <Paper
+        sx={{
+          p: 2,
+          height: 300,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
         <Typography color="text.secondary">
-          {isLoading ? 'Cargando...' : 'No hay datos disponibles'}
+          {isLoading ? "Cargando..." : "No hay datos disponibles"}
         </Typography>
       </Paper>
     );
@@ -84,21 +95,22 @@ export default function GenderLeadershipPie({ data, isLoading }: GenderLeadershi
 
   // Tomar el último dato disponible
   const latestData = data[data.length - 1];
-  
+
   const totalGender = latestData.men + latestData.women;
-  const totalLeadership = (latestData.men_in_leadership || 0) + (latestData.women_in_leadership || 0);
+  const totalLeadership =
+    (latestData.men_in_leadership || 0) + (latestData.women_in_leadership || 0);
 
   // Datos para vista de género
   const genderData: ChartDatum[] = [
     {
-      id: 'men',
-      label: 'Hombres',
+      id: "men",
+      label: "Hombres",
       value: latestData.men,
       color: genderColors.men,
     },
     {
-      id: 'women',
-      label: 'Mujeres',
+      id: "women",
+      label: "Mujeres",
       value: latestData.women,
       color: genderColors.women,
     },
@@ -107,66 +119,79 @@ export default function GenderLeadershipPie({ data, isLoading }: GenderLeadershi
   // Datos para vista de liderazgo
   const leadershipData: ChartDatum[] = [
     {
-      id: 'men-leaders',
-      label: 'Hombres Líderes',
+      id: "men-leaders",
+      label: "Hombres Líderes",
       value: latestData.men_in_leadership || 0,
       color: genderColors.men_leadership,
     },
     {
-      id: 'women-leaders',
-      label: 'Mujeres Líderes',
+      id: "women-leaders",
+      label: "Mujeres Líderes",
       value: latestData.women_in_leadership || 0,
       color: genderColors.women_leadership,
     },
   ];
 
-  const innerRadius = 50;
-  const outerRadius = 120;
+  const innerRadius = 40;
+  const outerRadius = 80;
 
   return (
-    <Paper sx={{ width: '100%', textAlign: 'center', p: 2 }}>
-      <Typography variant="h6" gutterBottom>
-        Distribución de Género y Liderazgo
-      </Typography>
-      <ToggleButtonGroup
-        color="primary"
-        size="small"
-        value={view}
-        exclusive
-        onChange={handleViewChange}
-        sx={{ mb: 2 }}
+    <Paper
+      sx={{
+        width: "100%",
+        p: 2,
+        height: 300,
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 1,
+        }}
       >
-        <ToggleButton value="gender">Vista por Género</ToggleButton>
-        <ToggleButton value="leadership">Vista por Liderazgo</ToggleButton>
-      </ToggleButtonGroup>
-      <Box sx={{ display: 'flex', justifyContent: 'center', height: 400 }}>
-        {view === 'gender' ? (
+        <Typography variant="h6" fontWeight={600}>
+          Distribución de Género y Liderazgo
+        </Typography>
+        <ToggleButtonGroup
+          color="primary"
+          size="small"
+          value={view}
+          exclusive
+          onChange={handleViewChange}
+        >
+          <ToggleButton value="gender">Género</ToggleButton>
+          <ToggleButton value="leadership">Liderazgo</ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
+      <Box sx={{ display: "flex", justifyContent: "center", flex: 1 }}>
+        {view === "gender" ? (
           <PieChart
             series={[
               {
                 innerRadius,
                 outerRadius,
                 data: genderData,
-                arcLabel: (item) => {
-                  const percentage = (item.value / totalGender) * 100;
-                  return `${item.label} (${percentage.toFixed(0)}%)`;
-                },
                 valueFormatter: ({ value }) => {
                   const percentage = (value / totalGender) * 100;
                   return `${value} empleados (${percentage.toFixed(0)}%)`;
                 },
-                highlightScope: { fade: 'global', highlight: 'item' },
+                highlightScope: { fade: "global", highlight: "item" },
                 highlighted: { additionalRadius: 2 },
                 cornerRadius: 3,
               },
             ]}
-            sx={{
-              [`& .${pieArcLabelClasses.root}`]: {
-                fontSize: '9px',
-                color:'white',
+            width={400}
+            height={200}
+            slotProps={{
+              legend: {
+                direction: "vertical",
+                position: { vertical: "middle", horizontal: "end" },
               },
             }}
-            hideLegend
           >
             <PieCenterLabel>Género</PieCenterLabel>
           </PieChart>
@@ -177,26 +202,24 @@ export default function GenderLeadershipPie({ data, isLoading }: GenderLeadershi
                 innerRadius,
                 outerRadius,
                 data: leadershipData,
-                arcLabel: (item) => {
-                  const percentage = totalLeadership > 0 ? (item.value / totalLeadership) * 100 : 0;
-                  return `${item.label?.substring(0,7)} (${percentage.toFixed(0)}%)`;
-                },
                 valueFormatter: ({ value }) => {
-                  const percentage = totalLeadership > 0 ? (value / totalLeadership) * 100 : 0;
+                  const percentage =
+                    totalLeadership > 0 ? (value / totalLeadership) * 100 : 0;
                   return `${value} líderes (${percentage.toFixed(0)}%)`;
                 },
-                highlightScope: { fade: 'global', highlight: 'item' },
+                highlightScope: { fade: "global", highlight: "item" },
                 highlighted: { additionalRadius: 2 },
                 cornerRadius: 3,
               },
             ]}
-            sx={{
-              [`& .${pieArcLabelClasses.root}`]: {
-                fontSize: '9px',
-                color:"white"
+            width={400}
+            height={200}
+            slotProps={{
+              legend: {
+                direction: "vertical",
+                position: { vertical: "middle", horizontal: "end" },
               },
             }}
-            hideLegend
           >
             <PieCenterLabel>Liderazgo</PieCenterLabel>
           </PieChart>

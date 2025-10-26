@@ -24,6 +24,7 @@ export interface SocialChartData {
   women_in_leadership: number;
   insured_employees: number;
   uninsured_employees: number;
+  community_programs: boolean;
 }
 export interface SocialDataResponse {
   social: SocialChartData[];

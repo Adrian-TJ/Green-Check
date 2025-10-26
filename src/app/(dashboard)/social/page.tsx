@@ -1,11 +1,13 @@
 "use client";
 import { Container, Paper, Box, Typography, Alert, Grid } from "@mui/material";
 import GroupsIcon from "@mui/icons-material/Groups";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CancelIcon from "@mui/icons-material/Cancel";
 import { useSocial } from "@/modules/social/hooks/useSocial";
 import { SocialChart } from "@/modules/social/components/SocialChart";
 import GenderLeadershipPie from "@/modules/social/components/GenderLeadershipPie";
-import { PieChart } from "@mui/x-charts/PieChart";
 import { BarChart } from "@mui/x-charts/BarChart";
+import { Gauge } from "@mui/x-charts/Gauge";
 
 // Definir el tipo para los datos sociales
 interface SocialData {
@@ -88,27 +90,12 @@ export default function SocialPage() {
   const uninsuredValue = latestData?.uninsured_employees || 0;
   const totalInsured = insuredValue + uninsuredValue;
 
-  // Datos para el gráfico de pie del seguro
-  const insurancePieData = [
-    {
-      id: 0,
-      value: insuredValue,
-      label: `Con Seguro: ${insuredValue} (${
-        totalInsured > 0 ? ((insuredValue / totalInsured) * 100).toFixed(1) : 0
-      }%)`,
-      color: "#4CAF50",
-    },
-    {
-      id: 1,
-      value: uninsuredValue,
-      label: `Sin Seguro: ${uninsuredValue} (${
-        totalInsured > 0
-          ? ((uninsuredValue / totalInsured) * 100).toFixed(1)
-          : 0
-      }%)`,
-      color: "#F44336",
-    },
-  ];
+  // Calcular el porcentaje de empleados asegurados
+  const insuredPercentage =
+    totalInsured > 0 ? (insuredValue / totalInsured) * 100 : 0;
+
+  // Obtener el estado del programa comunitario
+  const hasCommunityProgram = latestData?.community_programs || false;
 
   return (
     <Container maxWidth="xl" sx={{ mt: 0, mb: 0, px: { xs: 2, sm: 3, md: 4 } }}>
@@ -138,17 +125,17 @@ export default function SocialPage() {
 
       <Grid container spacing={2}>
         {/* Nuevo gráfico de pie para género y liderazgo */}
-        <Grid size={{ xs: 12, md: 6 }}>
+        <Grid size={{ xs: 12, md: 5 }}>
           <GenderLeadershipPie data={genderData} isLoading={isLoading} />
         </Grid>
 
-        {/* Gráfico de pie para seguro médico */}
-        <Grid size={{ xs: 12, md: 6 }}>
+        {/* Gauge chart para empleados asegurados */}
+        <Grid size={{ xs: 12, md: 4 }}>
           <Paper
-            sx={{ p: 2, height: 530, display: "flex", flexDirection: "column" }}
+            sx={{ p: 2, height: 300, display: "flex", flexDirection: "column" }}
           >
-            <Typography variant="subtitle2" fontWeight={600} mb={1}>
-              Empleados con Seguro vs Sin Seguro
+            <Typography variant="h6" mt={0} fontWeight={600} mb={1}>
+              Empleados con Seguro Médico
             </Typography>
             {isLoading ? (
               <Box
@@ -178,36 +165,107 @@ export default function SocialPage() {
               <Box
                 sx={{
                   display: "flex",
+                  flexDirection: "row",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  flex: 1,
+                  gap: 1,
+                }}
+              >
+                <Gauge
+                  width={200}
+                  height={180}
+                  value={insuredPercentage}
+                  valueMin={0}
+                  valueMax={100}
+                  text={({ value }) => `${value?.toFixed(1)}%`}
+                  sx={{
+                    "& .MuiGauge-valueArc": {
+                      fill:
+                        insuredPercentage >= 80
+                          ? "#4CAF50"
+                          : insuredPercentage >= 50
+                          ? "#FFA726"
+                          : "#F44336",
+                    },
+                  }}
+                />
+                <Box sx={{ textAlign: "center" }}>
+                  <Typography variant="body2" color="text.secondary">
+                    {insuredValue} de {totalInsured} empleados con seguro
+                  </Typography>
+                </Box>
+              </Box>
+            )}
+          </Paper>
+        </Grid>
+
+        {/* Community Program Card */}
+        <Grid size={{ xs: 12, md: 3 }}>
+          <Paper
+            sx={{ p: 2, height: 300, display: "flex", flexDirection: "column" }}
+          >
+            <Typography variant="h6" fontWeight={600} mb={1}>
+              Programa Comunitario
+            </Typography>
+            {isLoading ? (
+              <Box
+                sx={{
+                  display: "flex",
                   justifyContent: "center",
                   alignItems: "center",
                   flex: 1,
                 }}
               >
-                <PieChart
-                  series={[
-                    {
-                      data: insurancePieData,
-                      innerRadius: 60, // mayor radio interior
-                      outerRadius: 120, // mayor radio exterior
-                    },
-                  ]}
-                  width={380}
-                  height={360} // más alto
-                  slotProps={{
-                    legend: {
-                      direction: "row",
-                      position: { vertical: "bottom", horizontal: "middle" },
-                      padding: 0,
-                    },
-                  }}
-                />
+                <Typography>Cargando...</Typography>
+              </Box>
+            ) : !latestData ? (
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  flex: 1,
+                }}
+              >
+                <Typography color="text.secondary">
+                  No hay datos disponibles
+                </Typography>
+              </Box>
+            ) : (
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  flex: 1,
+                  gap: 2,
+                }}
+              >
+                {hasCommunityProgram ? (
+                  <CheckCircleIcon sx={{ fontSize: 120, color: "#4CAF50" }} />
+                ) : (
+                  <CancelIcon sx={{ fontSize: 120, color: "#F44336" }} />
+                )}
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  textAlign="center"
+                >
+                  {hasCommunityProgram
+                    ? "Se realizó un programa comunitario este mes"
+                    : "No se realizó programa comunitario este mes"}
+                </Typography>
               </Box>
             )}
           </Paper>
         </Grid>
 
         <Grid size={{ xs: 12, md: 6 }}>
-          <Paper sx={{ p: 2, height: 300, display: "flex", flexDirection: "column" }}>
+          <Paper
+            sx={{ p: 2, height: 300, display: "flex", flexDirection: "column" }}
+          >
             <BarChart
               xAxis={[
                 {

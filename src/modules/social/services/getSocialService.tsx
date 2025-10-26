@@ -2,7 +2,7 @@
 
 import { PrismaClient } from "@prisma/client";
 import type { GeneralResponse } from "@/models/generalResponse";
-import type { SocialDataResponse } from "../models/Social";
+import type { Social, SocialDataResponse } from "../models/Social";
 
 const prisma = new PrismaClient();
 
@@ -30,7 +30,7 @@ export async function getSocialService(
     }
 
     // Map to chart format
-    const social = socials.map((s) => ({
+    const social = socials.map((s: Social) => ({
       date: s.date.toISOString().split("T")[0],
       men: s.men,
       women: s.women,
@@ -40,6 +40,7 @@ export async function getSocialService(
       satisfaction_rate: s.satisfaction_rate,
       insured_employees: s.insured_employees,
       uninsured_employees: s.uninsured_employees,
+      community_programs: s.community_programs,
     }));
 
     return {
