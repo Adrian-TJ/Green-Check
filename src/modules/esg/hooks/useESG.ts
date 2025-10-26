@@ -31,11 +31,14 @@ export function useESG() {
     enabled: !!pymeId,
   });
 
-  const environmentScores = envData?.status === "success" ? envData.data : null;
+  const environmentScores = envData?.status === "success" && envData.data ? envData.data : [];
 
   // Combine all scores by date
   const esgScores = useMemo(() => {
-    if (!environmentScores || !socialScores || !governanceScores) return [];
+    // Check if all arrays have data
+    if (!environmentScores?.length || !socialScores?.length || !governanceScores?.length) {
+      return [];
+    }
 
     const scoresByDate = new Map<string, Partial<ESGScore>>();
 

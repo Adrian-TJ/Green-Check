@@ -2,14 +2,14 @@
 
 import { Box, Container, Typography, Paper, Grid } from "@mui/material";
 import DashboardIcon from "@mui/icons-material/Dashboard";
-import NatureIcon from "@mui/icons-material/Nature";
-import PeopleIcon from "@mui/icons-material/People";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import { ResourceChart } from "@/modules/resources/components/ResourceChart";
-import { ResourceMetricCard } from "@/modules/resources/components/ResourceMetricCard";
 import { ESGGaugeCard } from "@/modules/resources/components/ESGGaugeCard";
 import { useESG } from "@/modules/esg/hooks/useESG";
 import { KPICard } from "@/modules/resources/components/KPICard";
+import { TrendCard } from "@/modules/resources/components/TrendCard";
+import { useESGInsights } from "@/modules/ai/hooks/useESGInsights";
+import { AIInsightsCard } from "@/modules/ai/components/AIInsightsCard";
 
 export default function DashboardPage() {
   /**
@@ -28,6 +28,13 @@ export default function DashboardPage() {
     isLoading,
   } = useESG();
 
+  // AI Insights Hook - automatically fetches insights when ESG data is available
+  const {
+    insights,
+    isLoading: insightsLoading,
+    error: insightsError,
+  } = useESGInsights(esgScores);
+
   /**
    * PILLAR SCORE CALCULATION (Latest Values)
    * Extract the most recent score for each pillar to display in gauge card
@@ -42,6 +49,13 @@ export default function DashboardPage() {
     governanceScores?.[governanceScores.length - 1]?.score ?? 0;
 
   /**
+   * ESG SCORE TREND CALCULATION
+   * Extract current and previous total ESG scores for TrendCard
+   */
+  const currentESGScore = esgScores?.[esgScores.length - 1]?.esgScore ?? 0;
+  const previousESGScore = esgScores?.[esgScores.length - 2]?.esgScore ?? 0;
+
+  /**
    * CHART DATA PREPARATION (Full Historical Data)
    * Transform scores into chart-compatible format with date and consumption fields
    * - ESG: Average of all three pillars (calculated in useESG hook)
@@ -52,30 +66,6 @@ export default function DashboardPage() {
       date: score.date,
       consumption: score.esgScore, // Average: (E + S + G) / 3
     })) || [];
-
-  const environmentChartData =
-    environmentScores?.map((score) => ({
-      date: score.date,
-      consumption: score.score,
-    })) || [];
-
-  const socialChartData =
-    socialScores?.map((score) => ({
-      date: score.date,
-      consumption: score.score,
-    })) || [];
-
-  /**
-   * METRIC CARD DATA (Trend Calculation)
-   * Extract last 2 values to calculate period-over-period trends
-   * ResourceMetricCard uses these to show:
-   * - Current value
-   * - Percentage change vs previous period
-   * - Trend indicator (up/down/flat arrow)
-   */
-  const esgMetricData = esgChartData.slice(-2);
-  const environmentMetricData = environmentChartData.slice(-2);
-  const socialMetricData = socialChartData.slice(-2);
 
   return (
     <Container maxWidth="xl" sx={{ mt: 0, mb: 0, px: { xs: 2, sm: 3, md: 4 } }}>
@@ -120,16 +110,45 @@ export default function DashboardPage() {
           />
         </Grid>
       </Grid>
-      {/* Metric Cards */}
+      {/* AI Insights Section - 2x3 Grid Layout */}
       <Grid container spacing={1} sx={{ mb: 1 }}>
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-          <KPICard
-            title="Interes"
-            value={14}
-            color="#4CAF50"
-            unit="%"
-            icon={<AssessmentIcon />}
-            isLoading={isLoading}
+        {/* Left Column - 2 items stacked */}
+        <Grid size={{ xs: 12, md: 2 }}>
+          <Grid container spacing={1}>
+            <Grid size={12}>
+              <KPICard
+                title="Interes"
+                value={
+                  16 -
+                  (3 *
+                    (latestEnvironmentScore +
+                      latestSocialScore +
+                      latestGovernanceScore)) /
+                    300
+                }
+                color=""
+                unit="%"
+                isLoading={isLoading}
+              />
+            </Grid>
+            <Grid size={12}>
+              <TrendCard
+                label="Puntuación ESG"
+                currentValue={currentESGScore}
+                previousValue={previousESGScore}
+                unit="pts"
+                isLoading={isLoading}
+              />
+            </Grid>
+          </Grid>
+        </Grid>
+
+        {/* Right Column - AI Insights spanning both rows */}
+        <Grid size={{ xs: 12, md: 10 }}>
+          <AIInsightsCard
+            insights={insights}
+            isLoading={insightsLoading}
+            error={insightsError}
           />
         </Grid>
       </Grid>

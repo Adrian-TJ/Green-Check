@@ -1,26 +1,24 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { getSocialAdapter } from "../adapters/getSocial";
+import { getSocialDetailsAdapter } from "../adapters/getSocialDetails";
 import { useUserSession } from "@/contexts/userSessionContext";
 
-export function useSocial() {
+export function useSocialDetails() {
   const { user } = useUserSession();
   const pymeId = user?.pyme?.id;
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ["social", pymeId],
+    queryKey: ["socialDetails", pymeId],
     queryFn: () => {
-      if (!pymeId) {
-        throw new Error("No pyme ID found");
-      }
-      return getSocialAdapter(pymeId);
+      if (!pymeId) throw new Error("No pyme ID found");
+      return getSocialDetailsAdapter(pymeId);
     },
     enabled: !!pymeId,
   });
 
   return {
-    socialScores: data?.status === "success" ? data.data : null,
+    socialData: data?.status === "success" && data.data ? data.data : [],
     isLoading,
     error,
     refetch,

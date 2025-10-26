@@ -7,7 +7,7 @@ import PeopleIcon from "@mui/icons-material/People";
 import SchoolIcon from "@mui/icons-material/School";
 import SentimentSatisfiedAltIcon from "@mui/icons-material/SentimentSatisfiedAlt";
 import HealthAndSafetyIcon from "@mui/icons-material/HealthAndSafety";
-import { useSocial } from "@/modules/social/hooks/useSocial";
+import { useSocialDetails } from "@/modules/social/hooks/useSocialDetails";
 import { SocialChart } from "@/modules/social/components/SocialChart";
 import { SocialMetricCard } from "@/modules/social/components/SocialMetricCard";
 import GenderLeadershipPie from "@/modules/social/components/GenderLeadershipPie";
@@ -28,12 +28,12 @@ interface SocialData {
 }
 
 export default function SocialPage() {
-  const { social, isLoading, error } = useSocial();
+  const { socialData: social, isLoading, error } = useSocialDetails();
 
   // Convertir los datos al tipo esperado por GenderLeadershipPie
   const genderData: SocialData[] =
     social?.map((item) => ({
-      date: item.date,
+      date: item.date instanceof Date ? item.date.toISOString().split("T")[0] : item.date,
       men: item.men,
       women: item.women,
       men_in_leadership: item.men_in_leadership,
@@ -44,7 +44,7 @@ export default function SocialPage() {
       uninsured: item.uninsured_employees,
     })) || [];
 
-  const dates = social?.map((d) => d.date) || [];
+  const dates = social?.map((d) => d.date instanceof Date ? d.date.toISOString().split("T")[0] : d.date) || [];
 
   const genderSeries = [
     {
@@ -118,25 +118,25 @@ export default function SocialPage() {
   // Prepare data for metric cards
   const totalEmployeesData =
     social?.map((item) => ({
-      date: item.date,
+      date: item.date instanceof Date ? item.date.toISOString().split("T")[0] : item.date,
       value: item.men + item.women,
     })) || [];
 
   const trainingHoursData =
     social?.map((item) => ({
-      date: item.date,
+      date: item.date instanceof Date ? item.date.toISOString().split("T")[0] : item.date,
       value: item.training_hours,
     })) || [];
 
   const satisfactionData =
     social?.map((item) => ({
-      date: item.date,
-      value: item.satisfaction_rate * 100,
+      date: item.date instanceof Date ? item.date.toISOString().split("T")[0] : item.date,
+      value: item.satisfaction_rate,
     })) || [];
 
   const insuredEmployeesData =
     social?.map((item) => ({
-      date: item.date,
+      date: item.date instanceof Date ? item.date.toISOString().split("T")[0] : item.date,
       value: item.insured_employees,
     })) || [];
 

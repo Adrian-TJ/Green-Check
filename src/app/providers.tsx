@@ -7,17 +7,11 @@ import { QueryProvider } from "@/providers/QueryProvider";
 import { HydrationZustand } from "@/components/HydrationZustand";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
-  const [mounted, setMounted] = React.useState(false);
-
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
-
   return (
     <QueryProvider>
       <ThemeProvider theme={theme}>
+        <CssBaseline />
         <HydrationZustand />
-        {mounted && <CssBaseline />}
         {children}
       </ThemeProvider>
     </QueryProvider>
