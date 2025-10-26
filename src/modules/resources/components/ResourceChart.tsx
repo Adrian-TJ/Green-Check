@@ -1,7 +1,8 @@
 "use client";
 
 import { Box, Paper, Typography, CircularProgress } from "@mui/material";
-import { LineChart } from "@mui/x-charts/LineChart";
+import { LineChart, areaElementClasses } from "@mui/x-charts/LineChart";
+import { useDrawingArea } from "@mui/x-charts/hooks";
 import type { ResourceChartData } from "../models/Resource";
 
 interface ResourceChartProps {
@@ -11,6 +12,27 @@ interface ResourceChartProps {
   unit: string;
   icon?: React.ReactNode;
   isLoading?: boolean;
+}
+
+function AreaGradient({ color, id }: { color: string; id: string }) {
+  const { top, height, bottom } = useDrawingArea();
+  const svgHeight = top + bottom + height;
+
+  return (
+    <defs>
+      <linearGradient
+        id={id}
+        x1="0"
+        x2="0"
+        y1="0"
+        y2={`${svgHeight}px`}
+        gradientUnits="userSpaceOnUse"
+      >
+        <stop offset="0%" stopColor={color} stopOpacity={0.5} />
+        <stop offset="100%" stopColor={color} stopOpacity={0.05} />
+      </linearGradient>
+    </defs>
+  );
 }
 
 export function ResourceChart({
@@ -72,6 +94,8 @@ export function ResourceChart({
   const percentageChange =
     ((latestConsumption - firstConsumption) / firstConsumption) * 100;
 
+  const gradientId = `area-gradient-${title.replace(/\s/g, "-")}`;
+
   return (
     <Paper
       sx={{ p: 1.5, height: 296, display: "flex", flexDirection: "column" }}
@@ -82,36 +106,6 @@ export function ResourceChart({
         <Typography variant="subtitle2" fontWeight={600}>
           {title}
         </Typography>
-      </Box>
-
-      {/* Second Row - Metrics */}
-      <Box
-        display="flex"
-        justifyContent="space-between"
-        alignItems="center"
-        mb={1}
-      >
-        <Box>
-          <Typography variant="subtitle1" color={color} fontWeight={600}>
-            {latestConsumption.toFixed(2)} {unit}
-          </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-            Consumo actual
-          </Typography>
-        </Box>
-        <Box textAlign="right">
-          <Typography
-            variant="subtitle1"
-            fontWeight={600}
-            color={percentageChange < 0 ? "success.main" : "error.main"}
-          >
-            {percentageChange > 0 ? "+" : ""}
-            {percentageChange.toFixed(1)}%
-          </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-            vs inicio
-          </Typography>
-        </Box>
       </Box>
 
       {/* Chart - Takes remaining space */}
@@ -135,12 +129,13 @@ export function ResourceChart({
               label: `Consumo (${unit})`,
               color: color,
               curve: "natural",
+              area: true,
             },
           ]}
           margin={{ top: 4, right: 45, bottom: 1, left: 3 }}
           slotProps={{
             legend: {
-              position: { vertical: "bottom", horizontal: "middle" },
+              position: { vertical: "bottom", horizontal: "center" },
               direction: "row",
               padding: 0,
             },
@@ -149,6 +144,9 @@ export function ResourceChart({
             width: "100%",
             "& .MuiLineElement-root": {
               strokeWidth: 3,
+            },
+            [`& .${areaElementClasses.root}`]: {
+              fill: `url(#${gradientId})`,
             },
             "& .MuiMarkElement-root": {
               fill: color,
@@ -159,7 +157,9 @@ export function ResourceChart({
               transform: "translateY(8px)",
             },
           }}
-        />
+        >
+          <AreaGradient color={color} id={gradientId} />
+        </LineChart>
       </Box>
     </Paper>
   );
