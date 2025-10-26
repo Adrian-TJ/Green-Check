@@ -3,8 +3,13 @@ import { Container, Paper, Box, Typography, Alert, Grid } from "@mui/material";
 import GroupsIcon from "@mui/icons-material/Groups";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
+import PeopleIcon from "@mui/icons-material/People";
+import SchoolIcon from "@mui/icons-material/School";
+import SentimentSatisfiedAltIcon from "@mui/icons-material/SentimentSatisfiedAlt";
+import HealthAndSafetyIcon from "@mui/icons-material/HealthAndSafety";
 import { useSocial } from "@/modules/social/hooks/useSocial";
 import { SocialChart } from "@/modules/social/components/SocialChart";
+import { SocialMetricCard } from "@/modules/social/components/SocialMetricCard";
 import GenderLeadershipPie from "@/modules/social/components/GenderLeadershipPie";
 import { BarChart } from "@mui/x-charts/BarChart";
 import { Gauge } from "@mui/x-charts/Gauge";
@@ -97,6 +102,31 @@ export default function SocialPage() {
   // Obtener el estado del programa comunitario
   const hasCommunityProgram = latestData?.community_programs || false;
 
+  // Prepare data for metric cards
+  const totalEmployeesData =
+    social?.map((item) => ({
+      date: item.date,
+      value: item.men + item.women,
+    })) || [];
+
+  const trainingHoursData =
+    social?.map((item) => ({
+      date: item.date,
+      value: item.training_hours,
+    })) || [];
+
+  const satisfactionData =
+    social?.map((item) => ({
+      date: item.date,
+      value: item.satisfaction_rate,
+    })) || [];
+
+  const insuredEmployeesData =
+    social?.map((item) => ({
+      date: item.date,
+      value: item.insured_employees,
+    })) || [];
+
   return (
     <Container maxWidth="xl" sx={{ mt: 0, mb: 0, px: { xs: 2, sm: 3, md: 4 } }}>
       <Paper sx={{ p: 1.5, mb: 1 }}>
@@ -122,6 +152,55 @@ export default function SocialPage() {
           Error al cargar los datos sociales.
         </Alert>
       )}
+
+      {/* Metric Cards */}
+      <Grid container spacing={1} sx={{ mb: 2 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <SocialMetricCard
+            title="Total Empleados"
+            data={totalEmployeesData}
+            color="#42A5F5"
+            icon={<PeopleIcon />}
+            isLoading={isLoading}
+            reverseColors={true}
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <SocialMetricCard
+            title="Horas de Capacitación"
+            data={trainingHoursData}
+            color="#FFA726"
+            unit="hrs"
+            icon={<SchoolIcon />}
+            isLoading={isLoading}
+            reverseColors={true}
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <SocialMetricCard
+            title="Satisfacción"
+            data={satisfactionData}
+            color="#66BB6A"
+            unit="%"
+            icon={<SentimentSatisfiedAltIcon />}
+            isLoading={isLoading}
+            reverseColors={true}
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <SocialMetricCard
+            title="Empleados Asegurados"
+            data={insuredEmployeesData}
+            color="#4CAF50"
+            icon={<HealthAndSafetyIcon />}
+            isLoading={isLoading}
+            reverseColors={true}
+          />
+        </Grid>
+      </Grid>
 
       <Grid container spacing={2}>
         {/* Nuevo gráfico de pie para género y liderazgo */}
