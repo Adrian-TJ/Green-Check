@@ -1062,8 +1062,61 @@ app.post(
         `Processing PDF upload: ${req.file.originalname} (${req.file.size} bytes)`
       );
 
-      // Optional: Get additional metadata from request body
+      // Get metadata from request body
       const { pymeId, documentType, description } = req.body;
+
+      console.log("Upload PDF request body:", {
+        pymeId,
+        documentType,
+        description,
+      });
+
+      // Validate required fields
+      if (!pymeId) {
+        return res.status(400).json({
+          error: "Missing required field",
+          message: "pymeId is required",
+        });
+      }
+
+      if (!documentType) {
+        return res.status(400).json({
+          error: "Missing required field",
+          message:
+            "documentType is required (codigo_etica, anti_corrupcion, gestion_riesgos)",
+        });
+      }
+
+      // Validate Pyme exists
+      console.log("Looking up Pyme with ID:", pymeId);
+      const pyme = await prisma.pyme.findUnique({
+        where: { id: pymeId },
+      });
+
+      console.log(
+        "Pyme lookup result:",
+        pyme ? `Found: ${pyme.name}` : "NOT FOUND"
+      );
+
+      if (!pyme) {
+        return res.status(404).json({
+          error: "Pyme not found",
+          message: "The specified Pyme does not exist",
+        });
+      }
+
+      // Validate document type
+      const validDocTypes = [
+        "codigo_etica",
+        "anti_corrupcion",
+        "gestion_riesgos",
+      ];
+      if (!validDocTypes.includes(documentType)) {
+        return res.status(400).json({
+          error: "Invalid document type",
+          message: `Document type must be one of: ${validDocTypes.join(", ")}`,
+        });
+      }
 
       // Generate a unique filename to prevent overwrites
       const timestamp = Date.now();
@@ -1071,7 +1124,7 @@ app.post(
         /[^a-zA-Z0-9._-]/g,
         "_"
       );
-      const uniqueFilename = `pdfs/${timestamp}_${sanitizedFilename}`;
+      const uniqueFilename = `pdfs/governance/${pymeId}/${documentType}/${timestamp}_${sanitizedFilename}`;
 
       // Prepare S3 upload parameters
       const params = {
@@ -1082,8 +1135,8 @@ app.post(
         Metadata: {
           originalName: req.file.originalname,
           uploadedAt: new Date().toISOString(),
-          ...(pymeId && { pymeId }),
-          ...(documentType && { documentType }),
+          pymeId,
+          documentType,
           ...(description && { description }),
         },
       };
@@ -1094,15 +1147,62 @@ app.post(
 
       console.log(`PDF uploaded successfully to S3: ${uniqueFilename}`);
 
+      // Generate the S3 URL
+      const s3Url = `https://${BUCKET_NAME}.s3.${BUCKET_REGION}.amazonaws.com/${uniqueFilename}`;
+
+      // Map document type to database field
+      const documentTypeToField: Record<string, string> = {
+        codigo_etica: "codigo_etica_url",
+        anti_corrupcion: "anti_corrupcion_url",
+        gestion_riesgos: "risk_file_url",
+      };
+
+      const fieldName = documentTypeToField[documentType];
+
+      // Check if governance record exists for this pyme
+      let governanceRecord = await prisma.governance.findFirst({
+        where: { pymeId },
+        orderBy: { created_at: "desc" },
+      });
+
+      if (governanceRecord) {
+        // Update existing record
+        governanceRecord = await prisma.governance.update({
+          where: { id: governanceRecord.id },
+          data: {
+            [fieldName]: s3Url,
+            updated_at: new Date(),
+          },
+        });
+        console.log(
+          `Updated governance record ${governanceRecord.id} with ${fieldName}`
+        );
+      } else {
+        // Create new record
+        governanceRecord = await prisma.governance.create({
+          data: {
+            pymeId,
+            [fieldName]: s3Url,
+            // Set required field to empty string if it's not the current upload
+            ...(documentType !== "gestion_riesgos" && { risk_file_url: "" }),
+          },
+        });
+        console.log(
+          `Created new governance record ${governanceRecord.id} with ${fieldName}`
+        );
+      }
+
       res.json({
         success: true,
-        message: "PDF uploaded successfully",
+        message: "PDF uploaded successfully and saved to database",
         data: {
           filename: uniqueFilename,
           originalName: req.file.originalname,
           fileSize: req.file.size,
+          s3Url,
           key: uniqueFilename,
           uploadedAt: new Date().toISOString(),
+          governanceId: governanceRecord.id,
           metadata: {
             pymeId,
             documentType,
