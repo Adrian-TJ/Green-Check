@@ -101,7 +101,7 @@ export default function SocialPage() {
     <Container maxWidth="xl" sx={{ mt: 0, mb: 0, px: { xs: 2, sm: 3, md: 4 } }}>
       <Paper sx={{ p: 1.5, mb: 1 }}>
         <Box display="flex" alignItems="center" gap={1}>
-          <GroupsIcon color="primary" sx={{ fontSize: 28 }} />
+          <GroupsIcon color="primary" sx={{ fontSize: 32 }} />
           <Box>
             <Typography variant="h5" color="primary">
               Impacto Social
@@ -109,7 +109,7 @@ export default function SocialPage() {
             <Typography
               variant="caption"
               color="text.secondary"
-              sx={{ fontSize: "0.7rem" }}
+              sx={{ fontSize: "1rem" }}
             >
               Monitoreo histórico de indicadores sociales
             </Typography>
@@ -290,7 +290,10 @@ export default function SocialPage() {
           <SocialChart
             title="Satisfacción del Personal"
             xLabels={dates}
-            series={satisfactionSeries}
+            series={satisfactionSeries.map((series) => ({
+              ...series,
+              data: series.data.map((value) => value * 100),
+            }))}
             chartType="line"
             isLoading={isLoading}
           />
