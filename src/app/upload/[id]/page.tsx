@@ -143,7 +143,7 @@ export default function Upload() {
 
       if (!response.ok) {
         throw new Error(`Upload failed: ${response.statusText}`);
-        console.log("Hola")
+        console.log("Hola");
       }
 
       const data = await response.json();
@@ -163,19 +163,19 @@ export default function Upload() {
       if (data.parsedData) {
         if (
           data.parsedData.documentType === "luz" &&
-          data.parsedData.consumoActual !== undefined
+          data.parsedData.consumoDiferencia !== undefined
         ) {
-          consumption = data.parsedData.consumoActual;
+          consumption = data.parsedData.consumoDiferencia;
         } else if (
           data.parsedData.documentType === "agua" &&
-          data.parsedData.ultimaLectura !== undefined
+          data.parsedData.consumo !== undefined
         ) {
-          consumption = data.parsedData.ultimaLectura;
+          consumption = data.parsedData.consumo;
         } else if (
           data.parsedData.documentType === "gas" &&
-          data.parsedData.lecturaActual !== undefined
+          data.parsedData.consumo !== undefined
         ) {
-          consumption = data.parsedData.lecturaActual;
+          consumption = data.parsedData.consumo;
         } else if (
           data.parsedData.documentType === "transporte" &&
           data.parsedData.consumo !== undefined
@@ -257,7 +257,7 @@ export default function Upload() {
   // Show submission complete screen
   if (submissionComplete) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-black dark:to-zinc-900 p-4">
+      <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-zinc-50 to-zinc-100 dark:from-black dark:to-zinc-900 p-4">
         <div className="w-full max-w-2xl">
           {uploadStatus === "success" ? (
             <div className="rounded-3xl bg-white p-12 shadow-2xl dark:bg-zinc-900 text-center">
